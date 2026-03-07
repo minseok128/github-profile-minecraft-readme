@@ -31,6 +31,11 @@ export interface UserSnapshot {
     totalStargazerCount: number;
 }
 
+export interface GifRenderConfig {
+    durationSec: number;
+    fps: number;
+}
+
 export interface RenderConfig {
     weeks: number;
     width: number;
@@ -38,8 +43,12 @@ export interface RenderConfig {
     background: 'sky' | 'transparent';
     showHud: boolean;
     showSheep: boolean;
+    createPng: boolean;
+    createGif: boolean;
+    emitHtml: boolean;
     baseName: string;
     outputDir: string;
+    gif: GifRenderConfig;
 }
 
 export interface CalendarMetric {
@@ -96,6 +105,9 @@ export interface ContribPattern {
 }
 
 export interface ExportedAssetPaths {
-    svgPath: string;
+    pngPath?: string;
+    gifPath?: string;
+    htmlPath?: string;
     readmeSnippetPath: string;
 }
+

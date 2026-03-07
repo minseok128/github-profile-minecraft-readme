@@ -3,23 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Render GitHub contribution data as a Minecraft-style SVG world for README usage.",
+  "description": "Render GitHub contribution data as a Minecraft-style Three.js scene and export README-safe assets.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "render": "tsx src/cli.ts",
-    "render:sample": "tsx src/cli.ts --sample --output-dir profile"
+    "render:sample": "tsx src/cli.ts --sample --emit-html --output-dir profile"
   },
   "dependencies": {
     "axios": "^1.13.5",
-    "d3": "^7.9.0",
-    "jsdom": "^26.1.0"
+    "playwright": "^1.54.2",
+    "three": "^0.180.0"
   },
   "devDependencies": {
-    "@types/d3": "^7.4.3",
-    "@types/jsdom": "^21.1.7",
     "@types/node": "^24.3.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }
 }
+

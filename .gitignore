@@ -5,5 +5,4 @@ dist/
 .tmp/
 .cache/
 coverage/
-.playwright-cli/
-output/
+
