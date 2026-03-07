@@ -9,9 +9,9 @@ GitHub contribution data를 Minecraft-style Three.js 씬으로 렌더링하고, 
 - headless browser로 캡처
 - README-safe 결과물 생성
 
-이전 멀티 테마 SVG 프로젝트와 달리, 여기서는 범용 테마 시스템이나 SVG 호환을 유지하지 않습니다.
+여기서는 범용 테마 시스템이나 SVG 호환을 유지하지 않습니다.
 
-## Why A New Repo
+## Rendering Goal
 
 GitHub README는 `Three.js HTML` 자체를 직접 실행할 수 없습니다. 실사용 가능한 목표는 `HTML 생성`이 아니라 `정적/애니메이션 이미지 export`입니다.
 
@@ -110,4 +110,3 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 - [src/scene/build-scene-page.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/build-scene-page.ts): Three.js scene HTML builder
 - [src/scene/sheep-planner.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/sheep-planner.ts): sheep spawn/path planner
 - [src/render/exporter.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/render/exporter.ts): Playwright capture + ffmpeg export
-
