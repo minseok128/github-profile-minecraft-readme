@@ -203,7 +203,7 @@ ${createHudMarkup(userSnapshot, period, config)}
 
     const camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 240);
     const isoDirection = new THREE.Vector3(1, 1, 1).normalize();
-    const cameraFitPadding = 1.04;
+    const cameraFitPadding = sceneData.background === "transparent" ? 1.005 : 1.04;
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x6b4b31, 0.98));
 
@@ -222,11 +222,12 @@ ${createHudMarkup(userSnapshot, period, config)}
       new THREE.MeshLambertMaterial({
         color: "#bfe4ff",
         transparent: true,
-        opacity: sceneData.background === "transparent" ? 0.08 : 0.18
+        opacity: sceneData.background === "transparent" ? 0 : 0.18
       })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
+    ground.visible = sceneData.background !== "transparent";
     scene.add(ground);
 
     function parseBitmapValue(value) {
