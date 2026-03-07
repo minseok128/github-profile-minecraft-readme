@@ -87,7 +87,6 @@ export const buildSceneHtml = (
             : [],
         contribPatterns: MINECRAFT_GRASS_PATTERNS,
     };
-
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -173,6 +172,7 @@ ${createHudMarkup(userSnapshot, period, config)}
     import * as THREE from "/vendor/three.module.js";
 
     const sceneData = ${JSON.stringify(sceneData)};
+    const gifDurationSec = ${JSON.stringify(config.gif.durationSec)};
     const assets = {
       sheepTexturePath: "/assets/sheep.png",
       sheepFurTexturePath: "/assets/sheep_fur.png"
@@ -493,13 +493,45 @@ ${createHudMarkup(userSnapshot, period, config)}
       return { ...sheep, shadow };
     }
 
+    function getYawBetween(start, end) {
+      const flatDelta = end.clone().sub(start);
+      flatDelta.y = 0;
+      return Math.atan2(flatDelta.x, flatDelta.z) + Math.PI;
+    }
+
+    const stepDurationSec = 0.72;
+    const grazeAnimationLengthSec = 2.0;
+    const grazeHeadLowerAmount = 6.5 * unit;
+    const grazeHeadForwardAmount = 2.2 * unit;
+    const grazeHeadBaseRotation = THREE.MathUtils.degToRad(18);
+    const grazeHeadChewAmplitude = THREE.MathUtils.degToRad(5.5);
+    const clock = new THREE.Clock();
+    let simulatedTimeSec = 0;
+
     const sheepInstances = sceneData.showSheep
       ? sceneData.sheepPlans.map((plan, sheepIndex) => ({
           ...createSheepInstance(plan.colorHex),
-          route: plan.route.map((cell) => new THREE.Vector3(cell.week, cell.worldHeight + 0.01, cell.dayOfWeek)),
-          moveSpeed: 0.95 + (sheepIndex % 3) * 0.06,
-          timeOffset: sheepIndex * 0.7 + plan.islandId * 0.45,
-          gaitPhase: sheepIndex * 0.8
+          islandId: plan.islandId,
+          sheepIndex,
+          islandSheepCount: plan.islandSheepCount,
+          route: plan.route.map((cell) =>
+            new THREE.Vector3(cell.week, cell.worldHeight + 0.01, cell.dayOfWeek),
+          ),
+          routeIndex: 0,
+          segmentProgress: 0,
+          moveSpeed: 0.9 + (sheepIndex % 3) * 0.05,
+          walkCycle: sheepIndex * 0.8,
+          state: "walk",
+          stateRemaining:
+            plan.sheepIndex *
+            0.35 *
+            Math.max(1, Math.floor(plan.route.length / Math.max(1, plan.islandSheepCount))),
+          grazeClock: 0,
+          pausedPosition: null,
+          pausedYaw: null,
+          gaitBlend: 1,
+          grazeBlend: 0,
+          rngState: (((plan.islandId + 1) * 1103515245) ^ ((sheepIndex + 3) * 12345)) >>> 0,
         }))
       : [];
 
@@ -614,85 +646,371 @@ ${createHudMarkup(userSnapshot, period, config)}
 
     updateCameraFrustum();
 
-    function updateSheepAtTime(timeSec) {
-      const segmentDurationSec = 0.82;
+    function normalizeAngle(rad) {
+      let angle = rad;
+      while (angle > Math.PI) angle -= Math.PI * 2;
+      while (angle < -Math.PI) angle += Math.PI * 2;
+      return angle;
+    }
+
+    function dampAngle(current, target, lambda, dt) {
+      const delta = normalizeAngle(target - current);
+      return current + delta * (1 - Math.exp(-lambda * dt));
+    }
+
+    function dampValue(current, target, lambda, dt) {
+      return current + (target - current) * (1 - Math.exp(-lambda * dt));
+    }
+
+    function nextRandom(sheepInstance) {
+      sheepInstance.rngState = (1664525 * sheepInstance.rngState + 1013904223) >>> 0;
+      return sheepInstance.rngState / 4294967296;
+    }
+
+    function resetHeadPose(sheepInstance) {
+      sheepInstance.headPivot.position.set(0, 18 * unit, -8 * unit);
+      sheepInstance.headPivot.rotation.x = THREE.MathUtils.degToRad(-10);
+      sheepInstance.bodyGroup.position.y = 12 * unit + 3 * unit;
+    }
+
+    function startRandomBehavior(sheepInstance) {
+      const roll = nextRandom(sheepInstance);
+      if (roll < 0.18) {
+        sheepInstance.state = "graze";
+        sheepInstance.stateRemaining = 2.2 + nextRandom(sheepInstance) * 2.2;
+        sheepInstance.grazeClock = 0;
+        return;
+      }
+      if (roll < 0.42) {
+        sheepInstance.state = "idle";
+        sheepInstance.stateRemaining = 0.8 + nextRandom(sheepInstance) * 1.8;
+        return;
+      }
+      sheepInstance.state = "walk";
+      sheepInstance.stateRemaining = 0;
+    }
+
+    function applyGrazingPose(sheepInstance, dt) {
+      sheepInstance.grazeClock += dt;
+      const cycleTime = sheepInstance.grazeClock % grazeAnimationLengthSec;
+      const lowerT =
+        cycleTime <= 0.2
+          ? cycleTime / 0.2
+          : cycleTime >= 1.8
+            ? Math.max(0, (2.0 - cycleTime) / 0.2)
+            : 1;
+      const chew =
+        cycleTime >= 0.2 && cycleTime <= 1.8
+          ? Math.sin(((cycleTime - 0.2) / 1.6) * Math.PI * 8)
+          : 0;
+      sheepInstance.headPivot.position.set(
+        0,
+        18 * unit - grazeHeadLowerAmount * lowerT,
+        -8 * unit - grazeHeadForwardAmount * lowerT,
+      );
+      sheepInstance.headPivot.rotation.x =
+        THREE.MathUtils.degToRad(-10) * (1 - lowerT) +
+        (grazeHeadBaseRotation + grazeHeadChewAmplitude * chew) * lowerT;
+      sheepInstance.bodyGroup.position.y = 12 * unit + 3 * unit - lowerT * 0.01;
+    }
+
+    function resetSheepState(sheepInstance) {
+      sheepInstance.routeIndex = 0;
+      sheepInstance.segmentProgress = 0;
+      sheepInstance.walkCycle = sheepInstance.sheepIndex * 0.8;
+      sheepInstance.state = "walk";
+      sheepInstance.stateRemaining =
+        sheepInstance.sheepIndex *
+        0.35 *
+        Math.max(
+          1,
+          Math.floor(sheepInstance.route.length / Math.max(1, sheepInstance.islandSheepCount)),
+        );
+      sheepInstance.grazeClock = 0;
+      sheepInstance.pausedPosition = null;
+      sheepInstance.pausedYaw = null;
+      sheepInstance.gaitBlend = 1;
+      sheepInstance.grazeBlend = 0;
+      sheepInstance.rngState =
+        (((sheepInstance.islandId + 1) * 1103515245) ^
+          ((sheepInstance.sheepIndex + 3) * 12345)) >>>
+        0;
+
+      if (sheepInstance.route.length > 0) {
+        const start = sheepInstance.route[0];
+        sheepInstance.root.position.copy(start);
+        sheepInstance.shadow.position.set(start.x, 0.03, start.z);
+      }
+      resetHeadPose(sheepInstance);
+    }
+
+    function updateSheep(dt) {
       sheepInstances.forEach((sheepInstance) => {
-        if (sheepInstance.route.length === 0) {
+        if (sheepInstance.route.length < 2) {
           return;
         }
-        if (sheepInstance.route.length === 1) {
-          const position = sheepInstance.route[0];
+
+        const segmentCount = Math.max(1, sheepInstance.route.length - 1);
+        if (sheepInstance.state === "walk") {
+          sheepInstance.segmentProgress +=
+            (dt * sheepInstance.moveSpeed) / stepDurationSec;
+
+          let crossedSegment = false;
+          while (sheepInstance.segmentProgress >= 1) {
+            sheepInstance.segmentProgress -= 1;
+            sheepInstance.routeIndex = (sheepInstance.routeIndex + 1) % segmentCount;
+            crossedSegment = true;
+          }
+
+          if (crossedSegment) {
+            startRandomBehavior(sheepInstance);
+          }
+
+          const currentIndex = sheepInstance.routeIndex % segmentCount;
+          const start = sheepInstance.route[currentIndex];
+          const end = sheepInstance.route[currentIndex + 1];
+
+          if (sheepInstance.state !== "walk") {
+            sheepInstance.segmentProgress = 0;
+            sheepInstance.pausedPosition = start.clone();
+            sheepInstance.pausedYaw = sheepInstance.root.rotation.y;
+            sheepInstance.gaitBlend = dampValue(sheepInstance.gaitBlend, 0, 10, dt);
+            sheepInstance.grazeBlend = dampValue(
+              sheepInstance.grazeBlend,
+              sheepInstance.state === "graze" ? 1 : 0,
+              7,
+              dt,
+            );
+            sheepInstance.root.position.copy(sheepInstance.pausedPosition);
+            sheepInstance.shadow.position.set(
+              sheepInstance.pausedPosition.x,
+              sheepInstance.pausedPosition.y - start.y + 0.03,
+              sheepInstance.pausedPosition.z,
+            );
+            const transitionSwing =
+              Math.cos(sheepInstance.walkCycle) *
+              THREE.MathUtils.degToRad(24) *
+              sheepInstance.gaitBlend;
+            sheepInstance.legPivots[0].rotation.x = transitionSwing;
+            sheepInstance.legPivots[1].rotation.x = -transitionSwing;
+            sheepInstance.legPivots[2].rotation.x = -transitionSwing;
+            sheepInstance.legPivots[3].rotation.x = transitionSwing;
+            resetHeadPose(sheepInstance);
+            if (sheepInstance.state === "graze") {
+              applyGrazingPose(sheepInstance, 0);
+            }
+            return;
+          }
+
+          const flatDelta = end.clone().sub(start);
+          flatDelta.y = 0;
+          const targetYaw = Math.atan2(flatDelta.x, flatDelta.z) + Math.PI;
+          sheepInstance.root.rotation.y = dampAngle(
+            sheepInstance.root.rotation.y,
+            targetYaw,
+            10.5,
+            dt,
+          );
+
+          sheepInstance.walkCycle += dt * sheepInstance.moveSpeed * 8.4;
+          const position = start.clone().lerp(end, sheepInstance.segmentProgress);
           sheepInstance.root.position.copy(position);
-          sheepInstance.shadow.position.set(position.x, position.y + 0.02, position.z);
+          sheepInstance.shadow.position.set(
+            position.x,
+            position.y - start.y + 0.03,
+            position.z,
+          );
+          sheepInstance.gaitBlend = dampValue(sheepInstance.gaitBlend, 1, 10, dt);
+          sheepInstance.grazeBlend = dampValue(sheepInstance.grazeBlend, 0, 8, dt);
+
+          const gaitPhase = sheepInstance.walkCycle;
+          const swing =
+            Math.cos(gaitPhase) *
+            THREE.MathUtils.degToRad(24) *
+            sheepInstance.gaitBlend;
+          sheepInstance.legPivots[0].rotation.x = swing;
+          sheepInstance.legPivots[3].rotation.x = swing;
+          sheepInstance.legPivots[1].rotation.x = -swing;
+          sheepInstance.legPivots[2].rotation.x = -swing;
+          sheepInstance.bodyGroup.position.y =
+            12 * unit +
+            3 * unit +
+            Math.abs(Math.sin(gaitPhase)) * 0.05 * sheepInstance.gaitBlend;
+          sheepInstance.headPivot.position.set(0, 18 * unit, -8 * unit);
+          sheepInstance.headPivot.rotation.x =
+            THREE.MathUtils.degToRad(-10) +
+            Math.sin(gaitPhase * 0.5) * 0.06 * sheepInstance.gaitBlend;
           return;
         }
 
-        const segmentCount = sheepInstance.route.length - 1;
-        const movementProgress =
-          (timeSec * sheepInstance.moveSpeed) / segmentDurationSec + sheepInstance.timeOffset;
-        const normalizedProgress =
-          ((movementProgress % segmentCount) + segmentCount) % segmentCount;
-        const segmentIndex = Math.floor(normalizedProgress);
-        const localProgress = normalizedProgress - segmentIndex;
-        const start = sheepInstance.route[segmentIndex];
-        const end = sheepInstance.route[segmentIndex + 1];
-        const position = start.clone().lerp(end, localProgress);
-        sheepInstance.root.position.copy(position);
-        sheepInstance.shadow.position.set(position.x, position.y + 0.02, position.z);
+        const currentIndex = sheepInstance.routeIndex % segmentCount;
+        const start = sheepInstance.route[currentIndex];
+        sheepInstance.root.rotation.y = dampAngle(
+          sheepInstance.root.rotation.y,
+          sheepInstance.pausedYaw ?? sheepInstance.root.rotation.y,
+          14,
+          dt,
+        );
 
-        const flatDelta = end.clone().sub(start);
-        flatDelta.y = 0;
-        sheepInstance.root.rotation.y = Math.atan2(flatDelta.x, flatDelta.z) + Math.PI;
+        sheepInstance.stateRemaining = Math.max(0, sheepInstance.stateRemaining - dt);
+        sheepInstance.pausedPosition = sheepInstance.pausedPosition || start.clone();
+        sheepInstance.root.position.copy(sheepInstance.pausedPosition);
+        sheepInstance.shadow.position.set(
+          sheepInstance.pausedPosition.x,
+          sheepInstance.pausedPosition.y - start.y + 0.03,
+          sheepInstance.pausedPosition.z,
+        );
+        sheepInstance.gaitBlend = dampValue(sheepInstance.gaitBlend, 0, 10, dt);
+        sheepInstance.grazeBlend = dampValue(
+          sheepInstance.grazeBlend,
+          sheepInstance.state === "graze" ? 1 : 0,
+          7,
+          dt,
+        );
+        const idleSwing =
+          Math.cos(sheepInstance.walkCycle) *
+          THREE.MathUtils.degToRad(24) *
+          sheepInstance.gaitBlend;
+        sheepInstance.legPivots[0].rotation.x = idleSwing;
+        sheepInstance.legPivots[1].rotation.x = -idleSwing;
+        sheepInstance.legPivots[2].rotation.x = -idleSwing;
+        sheepInstance.legPivots[3].rotation.x = idleSwing;
 
-        const gait = movementProgress * Math.PI * 2 + sheepInstance.gaitPhase;
-        const swing = Math.cos(gait) * THREE.MathUtils.degToRad(24);
-        sheepInstance.legPivots[0].rotation.x = swing;
-        sheepInstance.legPivots[1].rotation.x = -swing;
-        sheepInstance.legPivots[2].rotation.x = -swing;
-        sheepInstance.legPivots[3].rotation.x = swing;
-        sheepInstance.bodyGroup.position.y = 12 * unit + 3 * unit + Math.sin(gait * 2) * 0.01;
-        sheepInstance.headPivot.position.set(0, 18 * unit + Math.sin(gait * 2) * 0.01, -8 * unit);
-        sheepInstance.headPivot.rotation.x = THREE.MathUtils.degToRad(-8) + Math.sin(gait) * THREE.MathUtils.degToRad(6);
+        resetHeadPose(sheepInstance);
+        if (sheepInstance.state === "graze") {
+          applyGrazingPose(sheepInstance, dt);
+        }
+
+        if (sheepInstance.stateRemaining <= 0) {
+          sheepInstance.state = "walk";
+          sheepInstance.grazeClock = 0;
+          sheepInstance.pausedPosition = null;
+          sheepInstance.pausedYaw = null;
+          resetHeadPose(sheepInstance);
+        }
       });
     }
 
-    let autoAnimate = true;
-    let animationStart = performance.now();
-
-    function renderAt(timeSec) {
-      updateSheepAtTime(timeSec);
+    function resetSimulation() {
+      simulatedTimeSec = 0;
+      sheepInstances.forEach((sheepInstance) => {
+        resetSheepState(sheepInstance);
+      });
       renderer.render(scene, camera);
     }
 
-    function animate(now) {
+    let autoAnimate = true;
+
+    function stepSimulationTo(targetTimeSec) {
+      const normalizedTarget = Math.max(0, targetTimeSec);
+      if (normalizedTarget < simulatedTimeSec) {
+        resetSimulation();
+      }
+
+      while (simulatedTimeSec < normalizedTarget - 1e-6) {
+        const dt = Math.min(0.05, normalizedTarget - simulatedTimeSec);
+        updateSheep(dt);
+        simulatedTimeSec += dt;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function animate() {
       if (!autoAnimate) {
         return;
       }
-      renderAt((now - animationStart) / 1000);
-      window.requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      updateSheep(dt);
+      simulatedTimeSec += dt;
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
     }
 
     window.__setSceneTime = (timeSec) => {
       autoAnimate = false;
-      renderAt(timeSec);
+      stepSimulationTo(timeSec);
     };
+    window.__getSceneState = (timeSec) => {
+      autoAnimate = false;
+      stepSimulationTo(timeSec);
+      return sheepInstances.map((sheepInstance) => ({
+        x: sheepInstance.root.position.x,
+        y: sheepInstance.root.position.y,
+        z: sheepInstance.root.position.z,
+        yaw: sheepInstance.root.rotation.y,
+        state: sheepInstance.state,
+        shadowY: sheepInstance.shadow.position.y,
+        headY: sheepInstance.headPivot.position.y,
+        headZ: sheepInstance.headPivot.position.z,
+        headRotX: sheepInstance.headPivot.rotation.x,
+        bodyY: sheepInstance.bodyGroup.position.y,
+        routeIndex: sheepInstance.routeIndex,
+        leg0: sheepInstance.legPivots[0].rotation.x,
+        leg1: sheepInstance.legPivots[1].rotation.x,
+        leg2: sheepInstance.legPivots[2].rotation.x,
+        leg3: sheepInstance.legPivots[3].rotation.x,
+      }));
+    };
+    window.__applyLoopClosure = (startStates, endStates, blend) => {
+      autoAnimate = false;
+      sheepInstances.forEach((sheepInstance, index) => {
+        const startState = startStates[index];
+        const endState = endStates[index];
+        if (!startState || !endState) {
+          return;
+        }
+        const t = Math.min(1, Math.max(0, blend));
+        sheepInstance.root.position.set(
+          endState.x + (startState.x - endState.x) * t,
+          endState.y + (startState.y - endState.y) * t,
+          endState.z + (startState.z - endState.z) * t,
+        );
+        sheepInstance.shadow.position.set(
+          sheepInstance.root.position.x,
+          endState.shadowY + (startState.shadowY - endState.shadowY) * t,
+          sheepInstance.root.position.z,
+        );
+        sheepInstance.root.rotation.y =
+          endState.yaw + normalizeAngle(startState.yaw - endState.yaw) * t;
+        sheepInstance.headPivot.position.set(
+          0,
+          endState.headY + (startState.headY - endState.headY) * t,
+          endState.headZ + (startState.headZ - endState.headZ) * t,
+        );
+        sheepInstance.headPivot.rotation.x =
+          endState.headRotX + (startState.headRotX - endState.headRotX) * t;
+        sheepInstance.bodyGroup.position.y =
+          endState.bodyY + (startState.bodyY - endState.bodyY) * t;
+        sheepInstance.legPivots[0].rotation.x =
+          endState.leg0 + (startState.leg0 - endState.leg0) * t;
+        sheepInstance.legPivots[1].rotation.x =
+          endState.leg1 + (startState.leg1 - endState.leg1) * t;
+        sheepInstance.legPivots[2].rotation.x =
+          endState.leg2 + (startState.leg2 - endState.leg2) * t;
+        sheepInstance.legPivots[3].rotation.x =
+          endState.leg3 + (startState.leg3 - endState.leg3) * t;
+      });
+      renderer.render(scene, camera);
+    };
+    window.__PROFILE_SCENE_LOOP_DURATION = gifDurationSec;
     window.__resumeScene = () => {
-      animationStart = performance.now();
       if (!autoAnimate) {
         autoAnimate = true;
-        window.requestAnimationFrame(animate);
+        clock.getDelta();
+        requestAnimationFrame(animate);
       }
     };
 
     window.addEventListener("resize", () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       updateCameraFrustum();
-      renderAt(0);
+      renderer.render(scene, camera);
     });
 
-    renderAt(0);
+    resetSimulation();
     window.__PROFILE_SCENE_READY = true;
-    window.requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
   </script>
 </body>
 </html>`;

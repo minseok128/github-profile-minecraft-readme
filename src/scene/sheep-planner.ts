@@ -11,7 +11,7 @@ const ISLAND_DIRECTIONS = [
     [0, -1],
 ] as const;
 
-const MAX_WALK_STEPS = 36;
+const MAX_WALK_STEPS = 6;
 
 export const NATURAL_SHEEP_COLORS: ReadonlyArray<SheepColorDefinition> = [
     { name: 'white', hex: '#E6E6E6', weight: 81836 },
