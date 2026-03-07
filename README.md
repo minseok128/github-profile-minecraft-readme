@@ -2,6 +2,10 @@
 
 GitHub contribution data를 Minecraft-style Three.js 씬으로 렌더링하고, GitHub README에 바로 넣을 수 있는 `PNG`/`GIF` 자산으로 내보내는 전용 레포입니다.
 
+## Preview
+
+![Minecraft contribution world](./profile/profile-minecraft.gif)
+
 이 레포의 범위는 좁습니다.
 
 - GitHub GraphQL에서 데이터 수집
