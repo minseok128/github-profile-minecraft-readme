@@ -4,7 +4,7 @@ import { loadRenderConfig, parseCliOptions } from './config.js';
 import { aggregateGithubProfile } from './github/aggregate-user-info.js';
 import { fetchGithubProfile } from './github/github-graphql.js';
 import { exportProfileAssets } from './render/exporter.js';
-import { buildSceneSvg } from './scene/build-scene-svg.js';
+import { buildSceneHtml } from './scene/build-scene-page.js';
 import { createSampleProfile } from './sample-profile.js';
 
 const projectRoot = path.dirname(
@@ -40,15 +40,24 @@ const main = async (): Promise<void> => {
             await fetchGithubProfile(token as string, username, maxRepos, cliOptions.year),
         );
 
-    const svg = buildSceneSvg(resolvedSnapshot, config);
+    const html = buildSceneHtml(resolvedSnapshot, config);
     const exportedAssets = await exportProfileAssets(
         projectRoot,
+        resolvedSnapshot,
         config,
-        svg,
+        html,
     );
 
     console.log('Rendered profile assets:');
-    console.log(`- SVG: ${exportedAssets.svgPath}`);
+    if (exportedAssets.pngPath) {
+        console.log(`- PNG: ${exportedAssets.pngPath}`);
+    }
+    if (exportedAssets.gifPath) {
+        console.log(`- GIF: ${exportedAssets.gifPath}`);
+    }
+    if (exportedAssets.htmlPath) {
+        console.log(`- HTML preview: ${exportedAssets.htmlPath}`);
+    }
     console.log(`- README snippet: ${exportedAssets.readmeSnippetPath}`);
 };
 
