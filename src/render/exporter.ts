@@ -26,6 +26,71 @@ const runCommand = async (command: string, args: Array<string>): Promise<void> =
         });
     });
 
+interface SheepStateSample {
+    x: number;
+    y: number;
+    z: number;
+    yaw: number;
+    state: string;
+    shadowY: number;
+    headY: number;
+    headZ: number;
+    headRotX: number;
+    bodyY: number;
+    routeIndex: number;
+    leg0: number;
+    leg1: number;
+    leg2: number;
+    leg3: number;
+}
+
+const normalizeAngle = (rad: number): number => {
+    let angle = rad;
+    while (angle > Math.PI) {
+        angle -= Math.PI * 2;
+    }
+    while (angle < -Math.PI) {
+        angle += Math.PI * 2;
+    }
+    return angle;
+};
+
+const calculateLoopError = (
+    startStates: Array<SheepStateSample>,
+    endStates: Array<SheepStateSample>,
+): number =>
+    startStates.reduce((sum, startState, index) => {
+        const endState = endStates[index];
+        if (!endState) {
+            return sum + 1000;
+        }
+
+        const positionError = Math.hypot(
+            endState.x - startState.x,
+            endState.y - startState.y,
+            endState.z - startState.z,
+        );
+        const yawError = Math.abs(normalizeAngle(endState.yaw - startState.yaw));
+        const headError =
+            Math.abs(endState.headY - startState.headY) * 4 +
+            Math.abs(endState.headZ - startState.headZ) * 4 +
+            Math.abs(endState.headRotX - startState.headRotX) * 2;
+        const bodyError = Math.abs(endState.bodyY - startState.bodyY) * 4;
+        const statePenalty = startState.state === endState.state ? 0 : 6;
+        const routePenalty =
+            startState.routeIndex === endState.routeIndex ? 0 : 3;
+
+        return (
+            sum +
+            positionError * 14 +
+            yawError * 3 +
+            headError +
+            bodyError +
+            statePenalty +
+            routePenalty
+        );
+    }, 0);
+
 const createReadmeSnippet = (
     config: RenderConfig,
     exportedAssets: ExportedAssetPaths,
@@ -153,12 +218,71 @@ export const exportProfileAssets = async (
         const screenshotOptions = {
             omitBackground: config.background === 'transparent',
         };
+        const fps = config.gif.fps;
+        const preferredFrameCount = Math.max(
+            1,
+            Math.round(config.gif.durationSec * fps),
+        );
+        const maxFrameCount = preferredFrameCount + fps * 8;
+        const maxStartFrame = fps * 6;
+        const maxSampleFrame = maxStartFrame + maxFrameCount;
+        const stateCache = new Map<number, Array<SheepStateSample>>();
+
+        for (let frameIndex = 0; frameIndex <= maxSampleFrame; frameIndex += 1) {
+            const timeSec = frameIndex / fps;
+            const states = await page.evaluate((sampleTimeSec) => {
+                const getter = (
+                    window as Window & {
+                        __getSceneState?: (
+                            timeSec: number,
+                        ) => Array<SheepStateSample>;
+                    }
+                ).__getSceneState;
+                return getter ? getter(sampleTimeSec) : [];
+            }, timeSec);
+            stateCache.set(frameIndex, states);
+        }
+
+        let bestStartFrame = 0;
+        let bestFrameCount = preferredFrameCount;
+        let bestError = Number.POSITIVE_INFINITY;
+
+        for (let startFrame = 0; startFrame <= maxStartFrame; startFrame += 1) {
+            const startStates = stateCache.get(startFrame) ?? [];
+            for (
+                let frameCount = preferredFrameCount;
+                frameCount <= maxFrameCount;
+                frameCount += 1
+            ) {
+                const endStates = stateCache.get(startFrame + frameCount) ?? [];
+                const durationPenalty =
+                    Math.abs(frameCount - preferredFrameCount) * 0.12;
+                const error =
+                    calculateLoopError(startStates, endStates) + durationPenalty;
+
+                if (error < bestError) {
+                    bestError = error;
+                    bestStartFrame = startFrame;
+                    bestFrameCount = frameCount;
+                }
+
+                if (error <= 1.2) {
+                    break;
+                }
+            }
+        }
+
+        const loopDurationSec = bestFrameCount / fps;
+        const loopStartTimeSec = bestStartFrame / fps;
+        const loopStartStates = stateCache.get(bestStartFrame) ?? [];
+        const loopEndStates =
+            stateCache.get(bestStartFrame + bestFrameCount) ?? [];
 
         if (config.createPng) {
             const pngPath = path.join(outputDir, `${config.baseName}.png`);
-            await page.evaluate(() => {
-                (window as any).__setSceneTime(0.9);
-            });
+            await page.evaluate((timeSec) => {
+                (window as any).__setSceneTime(timeSec);
+            }, loopStartTimeSec);
             await page.screenshot({
                 path: pngPath,
                 ...screenshotOptions,
@@ -167,19 +291,56 @@ export const exportProfileAssets = async (
         }
 
         if (config.createGif) {
-            const frameCount = Math.max(
-                1,
-                Math.floor(config.gif.durationSec * config.gif.fps),
-            );
+            const frameCount = bestFrameCount;
             for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
                 const framePath = path.join(
                     frameTempDir,
                     `frame-${String(frameIndex).padStart(4, '0')}.png`,
                 );
-                const timeSec = frameIndex / config.gif.fps;
+                const timeSec = loopStartTimeSec + frameIndex / fps;
                 await page.evaluate((time) => {
                     (window as any).__setSceneTime(time);
                 }, timeSec);
+                await page.screenshot({
+                    path: framePath,
+                    ...screenshotOptions,
+                });
+            }
+
+            const closureFrameCount = Math.max(4, Math.round(fps * 0.6));
+            for (
+                let closureIndex = 1;
+                closureIndex <= closureFrameCount;
+                closureIndex += 1
+            ) {
+                const framePath = path.join(
+                    frameTempDir,
+                    `frame-${String(frameCount + closureIndex - 1).padStart(
+                        4,
+                        '0',
+                    )}.png`,
+                );
+                await page.evaluate(
+                    ({ startStates, endStates, blend }) => {
+                        const applier = (
+                            window as Window & {
+                                __applyLoopClosure?: (
+                                    startStates: Array<SheepStateSample>,
+                                    endStates: Array<SheepStateSample>,
+                                    blend: number,
+                                ) => void;
+                            }
+                        ).__applyLoopClosure;
+                        if (applier) {
+                            applier(startStates, endStates, blend);
+                        }
+                    },
+                    {
+                        startStates: loopStartStates,
+                        endStates: loopEndStates,
+                        blend: closureIndex / closureFrameCount,
+                    },
+                );
                 await page.screenshot({
                     path: framePath,
                     ...screenshotOptions,
