@@ -10,33 +10,21 @@ export interface CliOptions {
     maxRepos?: number;
     outputDir?: string;
     sample: boolean;
-    emitHtml?: boolean;
-    createGif?: boolean;
-    createPng?: boolean;
     background?: RenderConfig['background'];
     weeks?: number;
     width?: number;
     height?: number;
-    gifDurationSec?: number;
-    gifFps?: number;
 }
 
 export const DEFAULT_CONFIG: RenderConfig = {
     weeks: 26,
-    width: 960,
-    height: 540,
-    background: 'sky',
-    showHud: true,
-    showSheep: true,
-    createPng: true,
-    createGif: true,
-    emitHtml: false,
+    width: 1280,
+    height: 420,
+    background: 'transparent',
+    showHud: false,
+    showSheep: false,
     baseName: 'profile-minecraft',
     outputDir: 'profile',
-    gif: {
-        durationSec: 5,
-        fps: 10,
-    },
 };
 
 export const parseCliOptions = (argv: Array<string>): CliOptions => {
@@ -90,25 +78,8 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 }
                 i += 1;
                 break;
-            case '--duration':
-                options.gifDurationSec = Number(next);
-                i += 1;
-                break;
-            case '--fps':
-                options.gifFps = Number(next);
-                i += 1;
-                break;
             case '--sample':
                 options.sample = true;
-                break;
-            case '--emit-html':
-                options.emitHtml = true;
-                break;
-            case '--no-gif':
-                options.createGif = false;
-                break;
-            case '--no-png':
-                options.createPng = false;
                 break;
             default:
                 break;
@@ -137,29 +108,7 @@ export const loadRenderConfig = async (
             options.background ??
             fileConfig.background ??
             DEFAULT_CONFIG.background,
-        createGif:
-            options.createGif ??
-            fileConfig.createGif ??
-            DEFAULT_CONFIG.createGif,
-        createPng:
-            options.createPng ??
-            fileConfig.createPng ??
-            DEFAULT_CONFIG.createPng,
-        emitHtml:
-            options.emitHtml ??
-            fileConfig.emitHtml ??
-            DEFAULT_CONFIG.emitHtml,
         outputDir:
             options.outputDir ?? fileConfig.outputDir ?? DEFAULT_CONFIG.outputDir,
-        gif: {
-            durationSec:
-                options.gifDurationSec ??
-                fileConfig.gif?.durationSec ??
-                DEFAULT_CONFIG.gif.durationSec,
-            fps:
-                options.gifFps ??
-                fileConfig.gif?.fps ??
-                DEFAULT_CONFIG.gif.fps,
-        },
     };
 };

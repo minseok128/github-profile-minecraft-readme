@@ -1,16 +1,9 @@
 {
   "weeks": 26,
-  "width": 960,
-  "height": 540,
-  "background": "sky",
-  "showHud": true,
-  "showSheep": true,
-  "createPng": true,
-  "createGif": true,
-  "emitHtml": true,
-  "baseName": "profile-minecraft",
-  "gif": {
-    "durationSec": 5,
-    "fps": 10
-  }
+  "width": 1280,
+  "height": 420,
+  "background": "transparent",
+  "showHud": false,
+  "showSheep": false,
+  "baseName": "profile-minecraft"
 }
