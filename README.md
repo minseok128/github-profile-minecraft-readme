@@ -1,39 +1,35 @@
 # github-profile-minecraft-readme
 
-GitHub contribution data를 Minecraft-style Three.js 씬으로 렌더링하고, GitHub README에 바로 넣을 수 있는 `PNG`/`GIF` 자산으로 내보내는 전용 레포입니다.
+GitHub contribution data를 Minecraft-style `SVG` 잔디 월드로 렌더링하고, GitHub README에 바로 넣을 수 있는 자산으로 내보내는 전용 레포입니다.
 
 ## Preview
 
-![Minecraft contribution world](./profile/profile-minecraft.gif)
+![Minecraft contribution world](./profile/profile-minecraft.svg)
 
 이 레포의 범위는 좁습니다.
 
 - GitHub GraphQL에서 데이터 수집
-- 잔디 블록 + 양이 있는 Three.js 씬 생성
-- headless browser로 캡처
+- isometric 잔디 플랫폼 SVG 생성
 - README-safe 결과물 생성
 
-여기서는 범용 테마 시스템이나 SVG 호환을 유지하지 않습니다.
+여기서는 범용 테마 시스템이나 다른 출력 포맷 호환을 유지하지 않습니다.
 
 ## Rendering Goal
 
-GitHub README는 `Three.js HTML` 자체를 직접 실행할 수 없습니다. 실사용 가능한 목표는 `HTML 생성`이 아니라 `정적/애니메이션 이미지 export`입니다.
+GitHub README에서 바로 쓸 수 있는 산출물은 실행형 HTML이 아니라 정적인 이미지 자산입니다. 이 레포는 그 제약을 기준으로 바로 SVG를 생성합니다.
 
 그래서 이 레포는 처음부터 다음 파이프라인만 남겼습니다.
 
-`GitHub data -> scene -> PNG/GIF -> README embed`
+`GitHub data -> SVG world -> README embed`
 
 ## Requirements
 
 - Node.js 22+
-- `ffmpeg`
-- Chromium for Playwright
 
 ## Install
 
 ```bash
 npm install
-npx playwright install chromium
 ```
 
 ## Local Preview
@@ -46,9 +42,7 @@ npm run render:sample
 
 생성물:
 
-- `profile/profile-minecraft.png`
-- `profile/profile-minecraft.gif`
-- `profile/profile-minecraft.html`
+- `profile/profile-minecraft.svg`
 - `profile/README-snippet.md`
 
 ## Real GitHub Data
@@ -62,12 +56,9 @@ GITHUB_TOKEN=your_token npm run render -- --username your-github-id --output-dir
 - `--config config/default.json`
 - `--weeks 26`
 - `--width 1280`
-- `--height 720`
+- `--height 420`
 - `--background sky`
 - `--background transparent`
-- `--no-gif`
-- `--no-png`
-- `--emit-html`
 - `--year 2026`
 - `--max-repos 100`
 
@@ -78,10 +69,8 @@ GITHUB_TOKEN=your_token npm run render -- --username your-github-id --output-dir
 기본 형태는 다음과 같습니다.
 
 ```md
-![Minecraft contribution world](./profile/profile-minecraft.gif)
+![Minecraft contribution world](./profile/profile-minecraft.svg)
 ```
-
-GIF를 끄면 PNG를 대신 사용하면 됩니다.
 
 ## Config
 
@@ -90,11 +79,10 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 현재 주요 설정:
 
 - `weeks`: 표시할 주 수
-- `width`, `height`: 캡처 해상도
+- `width`, `height`: SVG 레이아웃 목표 크기
 - `background`: `sky` 또는 `transparent`
-- `createPng`, `createGif`: 출력 형식
-- `emitHtml`: standalone preview HTML 생성 여부
-- `gif.durationSec`, `gif.fps`: GIF 길이와 프레임 수
+- `showHud`: 오버레이 정보 표시 여부
+- `showSheep`: 향후 sheep 레이어 토글용 플래그
 
 ## GitHub Actions
 
@@ -103,7 +91,7 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 이 워크플로는:
 
 - 스케줄 또는 수동 실행
-- 자산 재렌더링
+- SVG 자산 재렌더링
 - `profile/` 디렉터리 커밋 갱신
 
 ## Repo Layout
@@ -111,6 +99,5 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 - [src/cli.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/cli.ts): CLI entry
 - [src/github/github-graphql.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/github/github-graphql.ts): GitHub GraphQL fetch
 - [src/github/aggregate-user-info.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/github/aggregate-user-info.ts): fetched data -> scene snapshot
-- [src/scene/build-scene-page.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/build-scene-page.ts): Three.js scene HTML builder
-- [src/scene/sheep-planner.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/sheep-planner.ts): sheep spawn/path planner
-- [src/render/exporter.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/render/exporter.ts): Playwright capture + ffmpeg export
+- [src/scene/build-scene-svg.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/build-scene-svg.ts): SVG world builder
+- [src/render/exporter.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/render/exporter.ts): SVG writer and README snippet exporter
