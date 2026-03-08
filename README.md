@@ -49,6 +49,7 @@ npm run render:sample
 - `profile/profile-minecraft.png`
 - `profile/profile-minecraft.gif`
 - `profile/profile-minecraft.html`
+- `profile/scene-runtime.js`
 - `profile/README-snippet.md`
 
 ## Real GitHub Data
@@ -94,7 +95,15 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 - `showHud`: 기본값은 `false`
 - `createPng`, `createGif`: 출력 형식
 - `emitHtml`: standalone preview HTML 생성 여부
+  `true`일 때 `scene-runtime.js`도 함께 생성됩니다.
 - `gif.durationSec`, `gif.fps`: GIF 길이와 프레임 수
+
+## Checks
+
+```bash
+npm run typecheck
+npm test
+```
 
 ## GitHub Actions
 
@@ -111,6 +120,8 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 - [src/cli.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/cli.ts): CLI entry
 - [src/github/github-graphql.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/github/github-graphql.ts): GitHub GraphQL fetch
 - [src/github/aggregate-user-info.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/github/aggregate-user-info.ts): fetched data -> scene snapshot
-- [src/scene/build-scene-page.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/build-scene-page.ts): Three.js scene HTML builder
+- [src/scene/build-scene-page.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/build-scene-page.ts): bootstrap HTML builder
+- [src/scene/runtime](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/runtime): typed browser runtime modules
 - [src/scene/sheep-planner.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene/sheep-planner.ts): sheep spawn/path planner
 - [src/render/exporter.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/render/exporter.ts): Playwright capture + ffmpeg export
+- [test](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/test): HTML shell and runtime regression tests
