@@ -104,3 +104,7 @@ npm run typecheck
 - [src/github](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/github): GitHub 데이터 수집 및 집계
 - [src/scene](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene): scene payload 생성 및 browser runtime
 - [src/render](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/render): Playwright 캡처와 export
+
+## License
+
+MIT. See [LICENSE](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/LICENSE).
