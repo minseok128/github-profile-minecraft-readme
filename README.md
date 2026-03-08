@@ -60,15 +60,14 @@ GITHUB_TOKEN=your_token npm run render -- --username your-github-id --output-dir
 선택 옵션:
 
 - `--config config/default.json`
-- `--weeks 26`
-- `--width 700`
-- `--height 520`
+- `--weeks 53`
+- `--width 1200`
+- `--height 892`
 - `--background sky`
 - `--background transparent`
 - `--no-gif`
 - `--no-png`
 - `--emit-html`
-- `--year 2026`
 - `--max-repos 100`
 
 ## README Usage
@@ -90,7 +89,7 @@ GIF를 끄면 PNG를 대신 사용하면 됩니다.
 현재 주요 설정:
 
 - `weeks`: 표시할 주 수
-- `width`, `height`: 기본 출력은 `700x520`
+- `width`, `height`: 기본 출력은 `1200x892`
 - `background`: 기본값은 `transparent`
 - `showHud`: 기본값은 `false`
 - `createPng`, `createGif`: 출력 형식

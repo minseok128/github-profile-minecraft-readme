@@ -2,7 +2,9 @@ node_modules/
 dist/
 .DS_Store
 .playwright/
+.playwright-cli/
 .tmp/
 .cache/
 coverage/
-
+output/
+.env.local

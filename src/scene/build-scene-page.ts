@@ -7,6 +7,7 @@ import {
     KOREAN_SEASONAL_GRASS_STOPS,
     KOREAN_SNOW_COVER_STOPS,
     KOREAN_SUMMER_FLOWER_COVER_STOPS,
+    KOREAN_SUMMER_WATER_COVER_STOPS,
 } from './minecraft-grass-theme.js';
 import { buildSheepPopulationPlans } from './sheep-planner.js';
 
@@ -158,6 +159,7 @@ export const buildSceneHtml = (
         seasonalGrassStops: KOREAN_SEASONAL_GRASS_STOPS,
         snowCoverStops: KOREAN_SNOW_COVER_STOPS,
         summerFlowerCoverStops: KOREAN_SUMMER_FLOWER_COVER_STOPS,
+        summerWaterCoverStops: KOREAN_SUMMER_WATER_COVER_STOPS,
     };
     return `<!doctype html>
 <html lang="en">
@@ -262,7 +264,9 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       pinkTulipTexturePath: "/assets/pink_tulip.png",
       whiteTulipTexturePath: "/assets/white_tulip.png",
       snowTexturePath: "/assets/snow.png",
-      dirtTexturePath: "/assets/dirt.png"
+      dirtTexturePath: "/assets/dirt.png",
+      waterTopTexturePath: "/assets/water_top.png",
+      waterSideTexturePath: "/assets/water_side.png"
     };
 
     const app = document.getElementById("app");
@@ -293,6 +297,9 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
     const camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 240);
     const isoDirection = new THREE.Vector3(1, 1, 1).normalize();
     const cameraFitPadding = sceneData.background === "transparent" ? 1.005 : 1.04;
+    const calendarCellMap = new Map(
+      sceneData.calendarMetrics.map((cell) => [cell.week + ":" + cell.dayOfWeek, cell]),
+    );
     const weekHeightMap = new Map();
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x7b5a3d, 1.08));
@@ -693,6 +700,10 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       return getInterpolatedSeasonalAmount(isoDate, sceneData.summerFlowerCoverStops);
     }
 
+    function getSummerWaterCoverage(isoDate) {
+      return getInterpolatedSeasonalAmount(isoDate, sceneData.summerWaterCoverStops);
+    }
+
     function createTintedTopTexture(baseTexture, tintHex) {
       const canvas = document.createElement("canvas");
       canvas.width = baseTexture.image.width;
@@ -859,7 +870,9 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       pinkTulipTexture,
       whiteTulipTexture,
       snowTexture,
-      dirtTexture
+      dirtTexture,
+      waterTopTexture,
+      waterSideTexture
     ] = await Promise.all([
       loadTexture(assets.sheepTexturePath),
       loadTexture(assets.sheepFurTexturePath),
@@ -877,7 +890,9 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       loadTexture(assets.pinkTulipTexturePath),
       loadTexture(assets.whiteTulipTexturePath),
       loadTexture(assets.snowTexturePath),
-      loadTexture(assets.dirtTexturePath)
+      loadTexture(assets.dirtTexturePath),
+      loadTexture(assets.waterTopTexturePath),
+      loadTexture(assets.waterSideTexturePath)
     ]);
 
     const springFlowerTextures = [
@@ -893,12 +908,170 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       blueOrchidTexture,
       poppyTexture,
     ];
+    const waterMaterials = [
+      new THREE.MeshPhongMaterial({
+        map: waterSideTexture,
+        color: new THREE.Color("#3f76e4"),
+        transparent: true,
+        opacity: 0.86,
+        shininess: 110,
+        specular: new THREE.Color("#dff8ff"),
+        emissive: new THREE.Color("#163d82"),
+        emissiveIntensity: 0.18,
+        depthWrite: false,
+      }),
+      new THREE.MeshPhongMaterial({
+        map: waterSideTexture,
+        color: new THREE.Color("#3f76e4"),
+        transparent: true,
+        opacity: 0.86,
+        shininess: 110,
+        specular: new THREE.Color("#dff8ff"),
+        emissive: new THREE.Color("#163d82"),
+        emissiveIntensity: 0.18,
+        depthWrite: false,
+      }),
+      new THREE.MeshPhongMaterial({
+        map: waterTopTexture,
+        color: new THREE.Color("#4d88f0"),
+        transparent: true,
+        opacity: 0.9,
+        shininess: 135,
+        specular: new THREE.Color("#effcff"),
+        emissive: new THREE.Color("#18427d"),
+        emissiveIntensity: 0.18,
+        depthWrite: false,
+      }),
+      new THREE.MeshPhongMaterial({
+        map: waterSideTexture,
+        color: new THREE.Color("#3568d7"),
+        transparent: true,
+        opacity: 0.84,
+        shininess: 100,
+        specular: new THREE.Color("#cfefff"),
+        emissive: new THREE.Color("#12315f"),
+        emissiveIntensity: 0.14,
+        depthWrite: false,
+      }),
+      new THREE.MeshPhongMaterial({
+        map: waterSideTexture,
+        color: new THREE.Color("#3f76e4"),
+        transparent: true,
+        opacity: 0.86,
+        shininess: 110,
+        specular: new THREE.Color("#dff8ff"),
+        emissive: new THREE.Color("#163d82"),
+        emissiveIntensity: 0.18,
+        depthWrite: false,
+      }),
+      new THREE.MeshPhongMaterial({
+        map: waterSideTexture,
+        color: new THREE.Color("#3f76e4"),
+        transparent: true,
+        opacity: 0.86,
+        shininess: 110,
+        specular: new THREE.Color("#dff8ff"),
+        emissive: new THREE.Color("#163d82"),
+        emissiveIntensity: 0.18,
+        depthWrite: false,
+      }),
+    ];
+
+    function countGrassNeighbors(cell) {
+      return [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].reduce((count, [weekOffset, dayOffset]) => {
+        const neighbor = calendarCellMap.get(
+          (cell.week + weekOffset) + ":" + (cell.dayOfWeek + dayOffset),
+        );
+        return neighbor && neighbor.contributionLevel > 0 ? count + 1 : count;
+      }, 0);
+    }
+
+    function countSelectedWaterNeighbors(cell, selectedWaterKeys) {
+      return [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].reduce((count, [weekOffset, dayOffset]) => {
+        return selectedWaterKeys.has(
+          (cell.week + weekOffset) + ":" + (cell.dayOfWeek + dayOffset),
+        )
+          ? count + 1
+          : count;
+      }, 0);
+    }
+
+    const summerWaterCells = sceneData.calendarMetrics.filter((cell) => {
+      if (cell.contributionLevel > 0) {
+        return false;
+      }
+      if (getSnowCoverage(cell.date) > 0) {
+        return false;
+      }
+      if (getSummerWaterCoverage(cell.date) <= 0) {
+        return false;
+      }
+      return countGrassNeighbors(cell) > 0;
+    });
+    const selectedWaterKeys = new Set();
+
+    summerWaterCells.forEach((cell) => {
+      const grassNeighborCount = countGrassNeighbors(cell);
+      if (grassNeighborCount < 2) {
+        return;
+      }
+
+      const seedChance =
+        getSummerWaterCoverage(cell.date) *
+        Math.min(1, 0.7 + grassNeighborCount * 0.18);
+      const seedRoll = hashString(
+        cell.date + ":water:seed:" + cell.week + ":" + cell.dayOfWeek,
+      );
+      if (seedRoll < seedChance) {
+        selectedWaterKeys.add(cell.week + ":" + cell.dayOfWeek);
+      }
+    });
+
+    summerWaterCells.forEach((cell) => {
+      const cellKey = cell.week + ":" + cell.dayOfWeek;
+      if (selectedWaterKeys.has(cellKey)) {
+        return;
+      }
+
+      const grassNeighborCount = countGrassNeighbors(cell);
+      const waterNeighborCount = countSelectedWaterNeighbors(cell, selectedWaterKeys);
+      if (waterNeighborCount <= 0 || grassNeighborCount <= 0) {
+        return;
+      }
+
+      const expansionChance =
+        getSummerWaterCoverage(cell.date) *
+        Math.min(1, 0.32 + waterNeighborCount * 0.34 + grassNeighborCount * 0.12);
+      const expansionRoll = hashString(
+        cell.date + ":water:expand:" + cell.week + ":" + cell.dayOfWeek,
+      );
+      if (expansionRoll < expansionChance) {
+        selectedWaterKeys.add(cellKey);
+      }
+    });
 
     const blockMaterialCache = new Map();
     function getBlockMaterials(cell) {
-      const cacheKey = cell.date + ":" + cell.contributionLevel;
+      const isWaterCell = selectedWaterKeys.has(cell.week + ":" + cell.dayOfWeek);
+      const cacheKey = cell.date + ":" + cell.contributionLevel + ":" + (isWaterCell ? "water" : "land");
       if (blockMaterialCache.has(cacheKey)) {
         return blockMaterialCache.get(cacheKey);
+      }
+
+      if (isWaterCell) {
+        const materials = waterMaterials.map((material) => material.clone());
+        blockMaterialCache.set(cacheKey, materials);
+        return materials;
       }
 
       let topTexture = dirtTexture;
@@ -964,13 +1137,14 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       const weekHeights = weekHeightMap.get(cell.week) || [];
       weekHeights.push(cell.worldHeight);
       weekHeightMap.set(cell.week, weekHeights);
+      const isWaterCell = selectedWaterKeys.has(cell.week + ":" + cell.dayOfWeek);
 
       const block = new THREE.Mesh(
         new THREE.BoxGeometry(1, cell.worldHeight, 1),
         getBlockMaterials(cell)
       );
       block.position.set(cell.week, cell.worldHeight * 0.5, cell.dayOfWeek);
-      block.castShadow = true;
+      block.castShadow = !isWaterCell;
       block.receiveShadow = true;
       scene.add(block);
       blocks.push(block);

@@ -80,7 +80,9 @@ const writeStandalonePreview = async (
         .replaceAll('/assets/pink_tulip.png', './assets/pink_tulip.png')
         .replaceAll('/assets/white_tulip.png', './assets/white_tulip.png')
         .replaceAll('/assets/snow.png', './assets/snow.png')
-        .replaceAll('/assets/dirt.png', './assets/dirt.png');
+        .replaceAll('/assets/dirt.png', './assets/dirt.png')
+        .replaceAll('/assets/water_top.png', './assets/water_top.png')
+        .replaceAll('/assets/water_side.png', './assets/water_side.png');
     const vendorDir = path.join(outputDir, 'vendor');
     const assetDir = path.join(outputDir, 'assets');
     await ensureDir(vendorDir);
@@ -160,6 +162,14 @@ const writeStandalonePreview = async (
     await copyFile(
         path.join(projectRoot, 'assets/dirt.png'),
         path.join(assetDir, 'dirt.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/water_top.png'),
+        path.join(assetDir, 'water_top.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/water_side.png'),
+        path.join(assetDir, 'water_side.png'),
     );
     const htmlPath = path.join(outputDir, `${baseName}.html`);
     await writeTextFile(htmlPath, previewHtml);

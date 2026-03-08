@@ -1,104 +1,89 @@
-import type { ContribPattern } from '../types.js';
+export interface SeasonalGrassStop {
+    month: number;
+    day: number;
+    color: string;
+}
 
-const BARE_DIRT_BITMAP = [
-    '0x0020',
-    '0x2103',
-    '0x100c',
-    '0x0400',
-    '0x0842',
-    '0x4390',
-    '0x0000',
-    '0x0040',
-    '0x0102',
-    '0x2600',
-    '0x0090',
-    '0x0009',
-    '0x4000',
-    '0x0050',
-    '0x2500',
-    '0x0001',
+export const KOREAN_SEASONAL_GRASS_STOPS: ReadonlyArray<SeasonalGrassStop> = [
+    { month: 1, day: 1, color: '#aab48a' },
+    { month: 2, day: 10, color: '#b6bf94' },
+    { month: 3, day: 10, color: '#96c763' },
+    { month: 4, day: 10, color: '#7dc24e' },
+    { month: 6, day: 1, color: '#68b53a' },
+    { month: 8, day: 10, color: '#74b13a' },
+    { month: 9, day: 20, color: '#95aa49' },
+    { month: 10, day: 20, color: '#8a9748' },
+    { month: 11, day: 15, color: '#9aa07d' },
+    { month: 12, day: 1, color: '#b0b98e' },
 ] as const;
 
-const GRASS_TOP_BITMAP = [
-    '0x1f3b',
-    '0x4587',
-    '0x7f0e',
-    '0xe2ed',
-    '0x5267',
-    '0x28be',
-    '0x97c1',
-    '0xdd3a',
-    '0x0429',
-    '0x598b',
-    '0x0a5d',
-    '0xa537',
-    '0x33b2',
-    '0xaa04',
-    '0x1093',
-    '0xb0ae',
+export interface SeasonalSnowCoverStop {
+    month: number;
+    day: number;
+    amount: number;
+}
+
+export const KOREAN_SNOW_COVER_STOPS: ReadonlyArray<SeasonalSnowCoverStop> = [
+    { month: 11, day: 15, amount: 0 },
+    { month: 12, day: 1, amount: 0.18 },
+    { month: 12, day: 15, amount: 0.45 },
+    { month: 1, day: 10, amount: 0.85 },
+    { month: 2, day: 1, amount: 0.75 },
+    { month: 2, day: 15, amount: 0.45 },
+    { month: 3, day: 1, amount: 0.18 },
+    { month: 3, day: 15, amount: 0 },
 ] as const;
 
-const DIRT_SIDE_BITMAP = [
-    '0x0000',
-    '0x0400',
-    '0x4509',
-    '0xb75f',
-    '0x4beb',
-    '0xcbfe',
-    '0x764a',
-    '0xc34c',
-    '0x6b9f',
-    '0xbff2',
-    '0xa491',
-    '0x621b',
-    '0xd1fc',
-    '0xbcd8',
-    '0x6f2c',
-    '0x4533',
+export interface SeasonalGroundOverlayStop {
+    month: number;
+    day: number;
+    amount: number;
+}
+
+export const KOREAN_BLOSSOM_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
+    { month: 3, day: 10, amount: 0 },
+    { month: 3, day: 25, amount: 0.2 },
+    { month: 4, day: 5, amount: 0.4 },
+    { month: 4, day: 15, amount: 0.28 },
+    { month: 4, day: 25, amount: 0.1 },
+    { month: 5, day: 5, amount: 0 },
 ] as const;
 
-const createPattern = (
-    topBackgroundColor: string,
-    topForegroundColor: string,
-    leftBackgroundColor: string,
-    leftForegroundColor: string,
-    rightBackgroundColor: string,
-    rightForegroundColor: string,
-    isBareDirt = false,
-): ContribPattern => ({
-    top: {
-        backgroundColor: topBackgroundColor,
-        foregroundColor: topForegroundColor,
-        width: 16,
-        bitmap: [...(isBareDirt ? BARE_DIRT_BITMAP : GRASS_TOP_BITMAP)],
-    },
-    left: {
-        backgroundColor: leftBackgroundColor,
-        foregroundColor: leftForegroundColor,
-        width: 16,
-        bitmap: [...(isBareDirt ? BARE_DIRT_BITMAP : DIRT_SIDE_BITMAP)],
-    },
-    right: {
-        backgroundColor: rightBackgroundColor,
-        foregroundColor: rightForegroundColor,
-        width: 16,
-        bitmap: [...(isBareDirt ? BARE_DIRT_BITMAP : DIRT_SIDE_BITMAP)],
-    },
-});
+export const KOREAN_SPRING_FLOWER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
+    { month: 3, day: 15, amount: 0 },
+    { month: 3, day: 28, amount: 0.08 },
+    { month: 4, day: 8, amount: 0.16 },
+    { month: 4, day: 20, amount: 0.12 },
+    { month: 5, day: 8, amount: 0.06 },
+    { month: 5, day: 20, amount: 0 },
+] as const;
 
-export const MINECRAFT_GRASS_PATTERNS: Array<ContribPattern> = [
-    createPattern(
-        '#8d6647',
-        '#593d29',
-        '#76553b',
-        '#4a3322',
-        '#634732',
-        '#3e2b1d',
-        true,
-    ),
-    createPattern('#88b04b', '#5f8d3a', '#8b5a34', '#6b4126', '#7a4b2d', '#5a341f'),
-    createPattern('#72a342', '#4f7e2f', '#7c4c2e', '#5c351f', '#6b3f26', '#4a2a18'),
-    createPattern('#5f8f36', '#3e6723', '#6d4228', '#4f2d1a', '#5b361f', '#3e2516'),
-    createPattern('#4c7b2f', '#2f511d', '#5f3a23', '#432514', '#4f2f1d', '#321b10'),
-];
+export const KOREAN_LEAF_LITTER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
+    { month: 9, day: 20, amount: 0 },
+    { month: 10, day: 10, amount: 0.08 },
+    { month: 10, day: 25, amount: 0.18 },
+    { month: 11, day: 10, amount: 0.28 },
+    { month: 11, day: 25, amount: 0.2 },
+    { month: 12, day: 8, amount: 0.06 },
+    { month: 12, day: 20, amount: 0 },
+] as const;
 
+export const KOREAN_SUMMER_FLOWER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
+    { month: 6, day: 1, amount: 0 },
+    { month: 6, day: 15, amount: 0.1 },
+    { month: 7, day: 5, amount: 0.16 },
+    { month: 7, day: 25, amount: 0.22 },
+    { month: 8, day: 20, amount: 0.14 },
+    { month: 9, day: 5, amount: 0.04 },
+    { month: 9, day: 20, amount: 0 },
+] as const;
+
+export const KOREAN_SUMMER_WATER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
+    { month: 5, day: 25, amount: 0 },
+    { month: 6, day: 12, amount: 0.14 },
+    { month: 7, day: 5, amount: 0.26 },
+    { month: 7, day: 30, amount: 0.4 },
+    { month: 8, day: 18, amount: 0.3 },
+    { month: 9, day: 1, amount: 0.12 },
+    { month: 9, day: 15, amount: 0 },
+] as const;

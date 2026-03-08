@@ -22,9 +22,9 @@ export interface CliOptions {
 }
 
 export const DEFAULT_CONFIG: RenderConfig = {
-    weeks: 26,
-    width: 700,
-    height: 520,
+    weeks: 53,
+    width: 1200,
+    height: 892,
     background: 'transparent',
     showHud: false,
     showSheep: true,
