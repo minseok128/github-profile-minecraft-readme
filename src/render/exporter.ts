@@ -26,71 +26,6 @@ const runCommand = async (command: string, args: Array<string>): Promise<void> =
         });
     });
 
-interface SheepStateSample {
-    x: number;
-    y: number;
-    z: number;
-    yaw: number;
-    state: string;
-    shadowY: number;
-    headY: number;
-    headZ: number;
-    headRotX: number;
-    bodyY: number;
-    routeIndex: number;
-    leg0: number;
-    leg1: number;
-    leg2: number;
-    leg3: number;
-}
-
-const normalizeAngle = (rad: number): number => {
-    let angle = rad;
-    while (angle > Math.PI) {
-        angle -= Math.PI * 2;
-    }
-    while (angle < -Math.PI) {
-        angle += Math.PI * 2;
-    }
-    return angle;
-};
-
-const calculateLoopError = (
-    startStates: Array<SheepStateSample>,
-    endStates: Array<SheepStateSample>,
-): number =>
-    startStates.reduce((sum, startState, index) => {
-        const endState = endStates[index];
-        if (!endState) {
-            return sum + 1000;
-        }
-
-        const positionError = Math.hypot(
-            endState.x - startState.x,
-            endState.y - startState.y,
-            endState.z - startState.z,
-        );
-        const yawError = Math.abs(normalizeAngle(endState.yaw - startState.yaw));
-        const headError =
-            Math.abs(endState.headY - startState.headY) * 4 +
-            Math.abs(endState.headZ - startState.headZ) * 4 +
-            Math.abs(endState.headRotX - startState.headRotX) * 2;
-        const bodyError = Math.abs(endState.bodyY - startState.bodyY) * 4;
-        const statePenalty = startState.state === endState.state ? 0 : 6;
-        const routePenalty =
-            startState.routeIndex === endState.routeIndex ? 0 : 3;
-
-        return (
-            sum +
-            positionError * 14 +
-            yawError * 3 +
-            headError +
-            bodyError +
-            statePenalty +
-            routePenalty
-        );
-    }, 0);
-
 const createReadmeSnippet = (
     config: RenderConfig,
     exportedAssets: ExportedAssetPaths,
@@ -127,7 +62,25 @@ const writeStandalonePreview = async (
     const previewHtml = html
         .replaceAll('/vendor/three.module.js', './vendor/three.module.js')
         .replaceAll('/assets/sheep.png', './assets/sheep.png')
-        .replaceAll('/assets/sheep_fur.png', './assets/sheep_fur.png');
+        .replaceAll('/assets/sheep_fur.png', './assets/sheep_fur.png')
+        .replaceAll('/assets/grass_block_top.png', './assets/grass_block_top.png')
+        .replaceAll('/assets/grass_block_side.png', './assets/grass_block_side.png')
+        .replaceAll(
+            '/assets/grass_block_side_overlay.png',
+            './assets/grass_block_side_overlay.png',
+        )
+        .replaceAll('/assets/grass_block_snow.png', './assets/grass_block_snow.png')
+        .replaceAll('/assets/pink_petals.png', './assets/pink_petals.png')
+        .replaceAll('/assets/leaf_litter.png', './assets/leaf_litter.png')
+        .replaceAll('/assets/poppy.png', './assets/poppy.png')
+        .replaceAll('/assets/dandelion.png', './assets/dandelion.png')
+        .replaceAll('/assets/cornflower.png', './assets/cornflower.png')
+        .replaceAll('/assets/blue_orchid.png', './assets/blue_orchid.png')
+        .replaceAll('/assets/azure_bluet.png', './assets/azure_bluet.png')
+        .replaceAll('/assets/pink_tulip.png', './assets/pink_tulip.png')
+        .replaceAll('/assets/white_tulip.png', './assets/white_tulip.png')
+        .replaceAll('/assets/snow.png', './assets/snow.png')
+        .replaceAll('/assets/dirt.png', './assets/dirt.png');
     const vendorDir = path.join(outputDir, 'vendor');
     const assetDir = path.join(outputDir, 'assets');
     await ensureDir(vendorDir);
@@ -147,6 +100,66 @@ const writeStandalonePreview = async (
     await copyFile(
         path.join(projectRoot, 'assets/sheep_fur.png'),
         path.join(assetDir, 'sheep_fur.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/grass_block_top.png'),
+        path.join(assetDir, 'grass_block_top.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/grass_block_side.png'),
+        path.join(assetDir, 'grass_block_side.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/grass_block_side_overlay.png'),
+        path.join(assetDir, 'grass_block_side_overlay.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/grass_block_snow.png'),
+        path.join(assetDir, 'grass_block_snow.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/pink_petals.png'),
+        path.join(assetDir, 'pink_petals.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/leaf_litter.png'),
+        path.join(assetDir, 'leaf_litter.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/poppy.png'),
+        path.join(assetDir, 'poppy.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/dandelion.png'),
+        path.join(assetDir, 'dandelion.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/cornflower.png'),
+        path.join(assetDir, 'cornflower.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/blue_orchid.png'),
+        path.join(assetDir, 'blue_orchid.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/azure_bluet.png'),
+        path.join(assetDir, 'azure_bluet.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/pink_tulip.png'),
+        path.join(assetDir, 'pink_tulip.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/white_tulip.png'),
+        path.join(assetDir, 'white_tulip.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/snow.png'),
+        path.join(assetDir, 'snow.png'),
+    );
+    await copyFile(
+        path.join(projectRoot, 'assets/dirt.png'),
+        path.join(assetDir, 'dirt.png'),
     );
     const htmlPath = path.join(outputDir, `${baseName}.html`);
     await writeTextFile(htmlPath, previewHtml);
@@ -219,70 +232,16 @@ export const exportProfileAssets = async (
             omitBackground: config.background === 'transparent',
         };
         const fps = config.gif.fps;
-        const preferredFrameCount = Math.max(
+        const frameCount = Math.max(
             1,
             Math.round(config.gif.durationSec * fps),
         );
-        const maxFrameCount = preferredFrameCount + fps * 8;
-        const maxStartFrame = fps * 6;
-        const maxSampleFrame = maxStartFrame + maxFrameCount;
-        const stateCache = new Map<number, Array<SheepStateSample>>();
-
-        for (let frameIndex = 0; frameIndex <= maxSampleFrame; frameIndex += 1) {
-            const timeSec = frameIndex / fps;
-            const states = await page.evaluate((sampleTimeSec) => {
-                const getter = (
-                    window as Window & {
-                        __getSceneState?: (
-                            timeSec: number,
-                        ) => Array<SheepStateSample>;
-                    }
-                ).__getSceneState;
-                return getter ? getter(sampleTimeSec) : [];
-            }, timeSec);
-            stateCache.set(frameIndex, states);
-        }
-
-        let bestStartFrame = 0;
-        let bestFrameCount = preferredFrameCount;
-        let bestError = Number.POSITIVE_INFINITY;
-
-        for (let startFrame = 0; startFrame <= maxStartFrame; startFrame += 1) {
-            const startStates = stateCache.get(startFrame) ?? [];
-            for (
-                let frameCount = preferredFrameCount;
-                frameCount <= maxFrameCount;
-                frameCount += 1
-            ) {
-                const endStates = stateCache.get(startFrame + frameCount) ?? [];
-                const durationPenalty =
-                    Math.abs(frameCount - preferredFrameCount) * 0.12;
-                const error =
-                    calculateLoopError(startStates, endStates) + durationPenalty;
-
-                if (error < bestError) {
-                    bestError = error;
-                    bestStartFrame = startFrame;
-                    bestFrameCount = frameCount;
-                }
-
-                if (error <= 1.2) {
-                    break;
-                }
-            }
-        }
-
-        const loopDurationSec = bestFrameCount / fps;
-        const loopStartTimeSec = bestStartFrame / fps;
-        const loopStartStates = stateCache.get(bestStartFrame) ?? [];
-        const loopEndStates =
-            stateCache.get(bestStartFrame + bestFrameCount) ?? [];
 
         if (config.createPng) {
             const pngPath = path.join(outputDir, `${config.baseName}.png`);
             await page.evaluate((timeSec) => {
                 (window as any).__setSceneTime(timeSec);
-            }, loopStartTimeSec);
+            }, 0);
             await page.screenshot({
                 path: pngPath,
                 ...screenshotOptions,
@@ -291,56 +250,15 @@ export const exportProfileAssets = async (
         }
 
         if (config.createGif) {
-            const frameCount = bestFrameCount;
             for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
                 const framePath = path.join(
                     frameTempDir,
                     `frame-${String(frameIndex).padStart(4, '0')}.png`,
                 );
-                const timeSec = loopStartTimeSec + frameIndex / fps;
+                const timeSec = frameIndex / fps;
                 await page.evaluate((time) => {
                     (window as any).__setSceneTime(time);
                 }, timeSec);
-                await page.screenshot({
-                    path: framePath,
-                    ...screenshotOptions,
-                });
-            }
-
-            const closureFrameCount = Math.max(4, Math.round(fps * 0.6));
-            for (
-                let closureIndex = 1;
-                closureIndex <= closureFrameCount;
-                closureIndex += 1
-            ) {
-                const framePath = path.join(
-                    frameTempDir,
-                    `frame-${String(frameCount + closureIndex - 1).padStart(
-                        4,
-                        '0',
-                    )}.png`,
-                );
-                await page.evaluate(
-                    ({ startStates, endStates, blend }) => {
-                        const applier = (
-                            window as Window & {
-                                __applyLoopClosure?: (
-                                    startStates: Array<SheepStateSample>,
-                                    endStates: Array<SheepStateSample>,
-                                    blend: number,
-                                ) => void;
-                            }
-                        ).__applyLoopClosure;
-                        if (applier) {
-                            applier(startStates, endStates, blend);
-                        }
-                    },
-                    {
-                        startStates: loopStartStates,
-                        endStates: loopEndStates,
-                        blend: closureIndex / closureFrameCount,
-                    },
-                );
                 await page.screenshot({
                     path: framePath,
                     ...screenshotOptions,

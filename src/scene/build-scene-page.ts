@@ -1,6 +1,13 @@
 import type { CalendarMetric, RenderConfig, UserSnapshot } from '../types.js';
 import { formatThousands, toFixed, toIsoDate, trimLastWeeks } from '../utils.js';
-import { MINECRAFT_GRASS_PATTERNS } from './minecraft-grass-theme.js';
+import {
+    KOREAN_BLOSSOM_COVER_STOPS,
+    KOREAN_LEAF_LITTER_COVER_STOPS,
+    KOREAN_SPRING_FLOWER_COVER_STOPS,
+    KOREAN_SEASONAL_GRASS_STOPS,
+    KOREAN_SNOW_COVER_STOPS,
+    KOREAN_SUMMER_FLOWER_COVER_STOPS,
+} from './minecraft-grass-theme.js';
 import { buildSheepPopulationPlans } from './sheep-planner.js';
 
 const SHEEP_TARGET_HEIGHT_BLOCKS = 1.3;
@@ -48,6 +55,7 @@ const buildCalendarMetrics = (
 const createHudMarkup = (
     userSnapshot: UserSnapshot,
     period: string,
+    visibleDayCount: number,
     config: RenderConfig,
 ): string => {
     if (!config.showHud) {
@@ -61,7 +69,7 @@ const createHudMarkup = (
         userSnapshot.totalContributions,
     )}</strong> contributions</div>
     <div class="hud-row">${period}</div>
-    <div class="hud-row">${config.weeks} weeks, Three.js scene, README-safe export</div>
+    <div class="hud-row">${visibleDayCount} days, Three.js scene, README-safe export</div>
   </div>`;
 };
 
@@ -83,9 +91,14 @@ export const buildSceneHtml = (
         sheepTargetHeight: SHEEP_TARGET_HEIGHT_BLOCKS,
         calendarMetrics,
         sheepPlans: config.showSheep
-            ? buildSheepPopulationPlans(calendarMetrics)
+            ? buildSheepPopulationPlans(calendarMetrics, config.gif.durationSec)
             : [],
-        contribPatterns: MINECRAFT_GRASS_PATTERNS,
+        blossomCoverStops: KOREAN_BLOSSOM_COVER_STOPS,
+        leafLitterCoverStops: KOREAN_LEAF_LITTER_COVER_STOPS,
+        springFlowerCoverStops: KOREAN_SPRING_FLOWER_COVER_STOPS,
+        seasonalGrassStops: KOREAN_SEASONAL_GRASS_STOPS,
+        snowCoverStops: KOREAN_SNOW_COVER_STOPS,
+        summerFlowerCoverStops: KOREAN_SUMMER_FLOWER_COVER_STOPS,
     };
     return `<!doctype html>
 <html lang="en">
@@ -167,7 +180,7 @@ export const buildSceneHtml = (
 </head>
 <body>
   <div id="app"></div>
-${createHudMarkup(userSnapshot, period, config)}
+${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
   <script type="module">
     import * as THREE from "/vendor/three.module.js";
 
@@ -175,7 +188,22 @@ ${createHudMarkup(userSnapshot, period, config)}
     const gifDurationSec = ${JSON.stringify(config.gif.durationSec)};
     const assets = {
       sheepTexturePath: "/assets/sheep.png",
-      sheepFurTexturePath: "/assets/sheep_fur.png"
+      sheepFurTexturePath: "/assets/sheep_fur.png",
+      grassTopTexturePath: "/assets/grass_block_top.png",
+      grassSideTexturePath: "/assets/grass_block_side.png",
+      grassSideOverlayTexturePath: "/assets/grass_block_side_overlay.png",
+      grassSnowTexturePath: "/assets/grass_block_snow.png",
+      pinkPetalsTexturePath: "/assets/pink_petals.png",
+      leafLitterTexturePath: "/assets/leaf_litter.png",
+      poppyTexturePath: "/assets/poppy.png",
+      dandelionTexturePath: "/assets/dandelion.png",
+      cornflowerTexturePath: "/assets/cornflower.png",
+      blueOrchidTexturePath: "/assets/blue_orchid.png",
+      azureBluetTexturePath: "/assets/azure_bluet.png",
+      pinkTulipTexturePath: "/assets/pink_tulip.png",
+      whiteTulipTexturePath: "/assets/white_tulip.png",
+      snowTexturePath: "/assets/snow.png",
+      dirtTexturePath: "/assets/dirt.png"
     };
 
     const app = document.getElementById("app");
@@ -190,6 +218,8 @@ ${createHudMarkup(userSnapshot, period, config)}
       preserveDrawingBuffer: true
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -197,17 +227,23 @@ ${createHudMarkup(userSnapshot, period, config)}
     if (sceneData.background === "transparent") {
       renderer.setClearColor(0x000000, 0);
     } else {
-      renderer.setClearColor("#dff3ff", 0);
+      renderer.setClearColor("#eef9ff", 0);
     }
     app.appendChild(renderer.domElement);
 
     const camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 240);
     const isoDirection = new THREE.Vector3(1, 1, 1).normalize();
     const cameraFitPadding = sceneData.background === "transparent" ? 1.005 : 1.04;
+    const monthFormatter = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      timeZone: "UTC"
+    });
+    const weekHeightMap = new Map();
+    const dayHeightMap = new Map();
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x6b4b31, 0.98));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x7b5a3d, 1.08));
 
-    const sun = new THREE.DirectionalLight(0xfffae0, 1.2);
+    const sun = new THREE.DirectionalLight(0xfff6d8, 1.34);
     sun.position.set(24, 34, 18);
     sun.castShadow = true;
     sun.shadow.camera.left = -32;
@@ -220,88 +256,15 @@ ${createHudMarkup(userSnapshot, period, config)}
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
       new THREE.MeshLambertMaterial({
-        color: "#bfe4ff",
+        color: "#d4efff",
         transparent: true,
-        opacity: sceneData.background === "transparent" ? 0 : 0.18
+        opacity: sceneData.background === "transparent" ? 0 : 0.22
       })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     ground.visible = sceneData.background !== "transparent";
     scene.add(ground);
-
-    function parseBitmapValue(value) {
-      return typeof value === "string" ? Number.parseInt(value, 16) : value;
-    }
-
-    function createPanelTexture(panelPattern) {
-      const width = Math.max(1, panelPattern.width);
-      const height = Math.max(1, panelPattern.bitmap.length);
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = panelPattern.backgroundColor;
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = panelPattern.foregroundColor;
-      panelPattern.bitmap.forEach((bitmapValue, y) => {
-        const bitmap = parseBitmapValue(bitmapValue);
-        for (let x = 0; x < width; x += 1) {
-          if ((bitmap & (1 << (width - x - 1))) !== 0) {
-            ctx.fillRect(x, y, 1, 1);
-          }
-        }
-      });
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.magFilter = THREE.NearestFilter;
-      texture.minFilter = THREE.NearestFilter;
-      texture.generateMipmaps = false;
-      return texture;
-    }
-
-    const materialCache = new Map();
-    function getBlockMaterials(contributionLevel) {
-      if (materialCache.has(contributionLevel)) {
-        return materialCache.get(contributionLevel);
-      }
-      const pattern = sceneData.contribPatterns[contributionLevel];
-      const topTexture = createPanelTexture(pattern.top);
-      const leftTexture = createPanelTexture({
-        ...pattern.left,
-        backgroundColor: pattern.left.backgroundColor || pattern.top.backgroundColor,
-        foregroundColor: pattern.left.foregroundColor || pattern.top.foregroundColor
-      });
-      const rightTexture = createPanelTexture({
-        ...pattern.right,
-        backgroundColor: pattern.right.backgroundColor || pattern.top.backgroundColor,
-        foregroundColor: pattern.right.foregroundColor || pattern.top.foregroundColor
-      });
-
-      const materials = [
-        new THREE.MeshLambertMaterial({ map: rightTexture }),
-        new THREE.MeshLambertMaterial({ map: leftTexture }),
-        new THREE.MeshLambertMaterial({ map: topTexture }),
-        new THREE.MeshLambertMaterial({ map: leftTexture }),
-        new THREE.MeshLambertMaterial({ map: rightTexture }),
-        new THREE.MeshLambertMaterial({ map: leftTexture })
-      ];
-      materialCache.set(contributionLevel, materials);
-      return materials;
-    }
-
-    const blocks = [];
-    sceneData.calendarMetrics.forEach((cell) => {
-      const block = new THREE.Mesh(
-        new THREE.BoxGeometry(1, cell.worldHeight, 1),
-        getBlockMaterials(cell.contributionLevel)
-      );
-      block.position.set(cell.week, cell.worldHeight * 0.5, cell.dayOfWeek);
-      block.castShadow = true;
-      block.receiveShadow = true;
-      scene.add(block);
-      blocks.push(block);
-    });
 
     const textureLoader = new THREE.TextureLoader();
     function loadTexture(path) {
@@ -322,10 +285,644 @@ ${createHudMarkup(userSnapshot, period, config)}
       });
     }
 
-    const [sheepBaseTexture, sheepFurTexture] = await Promise.all([
+    function createCanvasTexture(canvas) {
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      texture.generateMipmaps = false;
+      return texture;
+    }
+
+    function createLabelSprite(text, options) {
+      const {
+        fontSizePx,
+        fontWeight,
+        heightWorld,
+        paddingX,
+        paddingY,
+        anchorX,
+        anchorY,
+      } = options;
+      const resolutionScale = 2;
+      const measureCanvas = document.createElement("canvas");
+      const measureContext = measureCanvas.getContext("2d");
+      const font = fontWeight + " " + fontSizePx + "px " + '"SF Pro Display", "Segoe UI", sans-serif';
+      measureContext.font = font;
+      const textWidth = Math.ceil(measureContext.measureText(text).width);
+      const canvasWidth = Math.max(
+        1,
+        Math.ceil((textWidth + paddingX * 2) * resolutionScale),
+      );
+      const canvasHeight = Math.max(
+        1,
+        Math.ceil((fontSizePx + paddingY * 2) * resolutionScale),
+      );
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      const context = canvas.getContext("2d");
+      context.scale(resolutionScale, resolutionScale);
+      context.font = font;
+      context.textAlign = "left";
+      context.textBaseline = "middle";
+      context.lineJoin = "round";
+      context.strokeStyle = "rgba(255, 255, 255, 0.92)";
+      context.lineWidth = Math.max(2.5, fontSizePx * 0.16);
+      context.strokeText(
+        text,
+        paddingX,
+        (canvasHeight / resolutionScale) * 0.5,
+      );
+      context.fillStyle = "rgba(17, 24, 39, 0.94)";
+      context.fillText(
+        text,
+        paddingX,
+        (canvasHeight / resolutionScale) * 0.5,
+      );
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.center.set(anchorX, anchorY);
+      sprite.renderOrder = 12;
+      const aspect = canvas.width / Math.max(canvas.height, 1);
+      sprite.scale.set(heightWorld * aspect, heightWorld, 1);
+      return sprite;
+    }
+
+    function clampChannel(value) {
+      return Math.max(0, Math.min(255, Math.round(value)));
+    }
+
+    function hexToRgb(hex) {
+      const normalized = hex.replace("#", "");
+      return {
+        r: Number.parseInt(normalized.slice(0, 2), 16),
+        g: Number.parseInt(normalized.slice(2, 4), 16),
+        b: Number.parseInt(normalized.slice(4, 6), 16)
+      };
+    }
+
+    function rgbToHex(rgb) {
+      return "#" + [rgb.r, rgb.g, rgb.b]
+        .map((channel) => clampChannel(channel).toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    function mixHexColors(startHex, endHex, t) {
+      const clampedT = Math.max(0, Math.min(1, t));
+      const start = hexToRgb(startHex);
+      const end = hexToRgb(endHex);
+      return rgbToHex({
+        r: start.r + (end.r - start.r) * clampedT,
+        g: start.g + (end.g - start.g) * clampedT,
+        b: start.b + (end.b - start.b) * clampedT
+      });
+    }
+
+    function liftHex(hex, amount) {
+      const rgb = hexToRgb(hex);
+      if (amount >= 0) {
+        return rgbToHex({
+          r: rgb.r + (255 - rgb.r) * amount,
+          g: rgb.g + (255 - rgb.g) * amount,
+          b: rgb.b + (255 - rgb.b) * amount
+        });
+      }
+      const darken = 1 + amount;
+      return rgbToHex({
+        r: rgb.r * darken,
+        g: rgb.g * darken,
+        b: rgb.b * darken
+      });
+    }
+
+    function isLeapYear(year) {
+      return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    }
+
+    function toDayOfYear(year, month, day) {
+      const monthOffsets = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+      const leapOffset = isLeapYear(year) && month > 2 ? 1 : 0;
+      return monthOffsets[month - 1] + day + leapOffset;
+    }
+
+    function hashString(value) {
+      let hash = 2166136261;
+      for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0) / 4294967296;
+    }
+
+    function getSeasonalGrassTint(isoDate, contributionLevel) {
+      const [yearText, monthText, dayText] = isoDate.split("-");
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+      const dayOfYear = toDayOfYear(year, month, day);
+      const daysInYear = isLeapYear(year) ? 366 : 365;
+      const yearlyStops = sceneData.seasonalGrassStops
+        .map((stop) => ({
+          day: toDayOfYear(year, stop.month, stop.day),
+          color: stop.color
+        }))
+        .sort((left, right) => left.day - right.day);
+      const extendedStops = [
+        {
+          day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
+          color: yearlyStops[yearlyStops.length - 1].color
+        },
+        ...yearlyStops,
+        {
+          day: yearlyStops[0].day + daysInYear,
+          color: yearlyStops[0].color
+        }
+      ];
+
+      let leftStop = extendedStops[0];
+      let rightStop = extendedStops[1];
+      for (let index = 0; index < extendedStops.length - 1; index += 1) {
+        const left = extendedStops[index];
+        const right = extendedStops[index + 1];
+        if (dayOfYear >= left.day && dayOfYear < right.day) {
+          leftStop = left;
+          rightStop = right;
+          break;
+        }
+      }
+
+      const range = Math.max(1, rightStop.day - leftStop.day);
+      const seasonalColor = mixHexColors(
+        leftStop.color,
+        rightStop.color,
+        (dayOfYear - leftStop.day) / range,
+      );
+      const contributionLift = [0, 0.015, 0.035, 0.06, 0.09][contributionLevel] ?? 0;
+      return liftHex(seasonalColor, contributionLift);
+    }
+
+    function getInterpolatedSeasonalAmount(isoDate, stops) {
+      const [yearText, monthText, dayText] = isoDate.split("-");
+      const year = Number(yearText);
+      const month = Number(monthText);
+      const day = Number(dayText);
+      const dayOfYear = toDayOfYear(year, month, day);
+      const daysInYear = isLeapYear(year) ? 366 : 365;
+      const yearlyStops = stops
+        .map((stop) => ({
+          day: toDayOfYear(year, stop.month, stop.day),
+          amount: stop.amount
+        }))
+        .sort((left, right) => left.day - right.day);
+      const extendedStops = [
+        {
+          day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
+          amount: yearlyStops[yearlyStops.length - 1].amount
+        },
+        ...yearlyStops,
+        {
+          day: yearlyStops[0].day + daysInYear,
+          amount: yearlyStops[0].amount
+        }
+      ];
+
+      let leftStop = extendedStops[0];
+      let rightStop = extendedStops[1];
+      for (let index = 0; index < extendedStops.length - 1; index += 1) {
+        const left = extendedStops[index];
+        const right = extendedStops[index + 1];
+        if (dayOfYear >= left.day && dayOfYear < right.day) {
+          leftStop = left;
+          rightStop = right;
+          break;
+        }
+      }
+
+      const range = Math.max(1, rightStop.day - leftStop.day);
+      const t = Math.max(0, Math.min(1, (dayOfYear - leftStop.day) / range));
+      return leftStop.amount + (rightStop.amount - leftStop.amount) * t;
+    }
+
+    function getSnowCoverage(isoDate) {
+      return getInterpolatedSeasonalAmount(isoDate, sceneData.snowCoverStops);
+    }
+
+    function getBlossomCoverage(isoDate) {
+      return getInterpolatedSeasonalAmount(isoDate, sceneData.blossomCoverStops);
+    }
+
+    function getLeafLitterCoverage(isoDate) {
+      return getInterpolatedSeasonalAmount(isoDate, sceneData.leafLitterCoverStops);
+    }
+
+    function getSpringFlowerCoverage(isoDate) {
+      return getInterpolatedSeasonalAmount(isoDate, sceneData.springFlowerCoverStops);
+    }
+
+    function getSummerFlowerCoverage(isoDate) {
+      return getInterpolatedSeasonalAmount(isoDate, sceneData.summerFlowerCoverStops);
+    }
+
+    function createTintedTopTexture(baseTexture, tintHex) {
+      const canvas = document.createElement("canvas");
+      canvas.width = baseTexture.image.width;
+      canvas.height = baseTexture.image.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(baseTexture.image, 0, 0);
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = tintHex;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 0.06;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      return createCanvasTexture(canvas);
+    }
+
+    function createTintedSideTexture(baseTexture, overlayTexture, tintHex) {
+      const canvas = document.createElement("canvas");
+      canvas.width = baseTexture.image.width;
+      canvas.height = baseTexture.image.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(baseTexture.image, 0, 0);
+
+      const overlayCanvas = document.createElement("canvas");
+      overlayCanvas.width = overlayTexture.image.width;
+      overlayCanvas.height = overlayTexture.image.height;
+      const overlayCtx = overlayCanvas.getContext("2d");
+      overlayCtx.drawImage(overlayTexture.image, 0, 0);
+      overlayCtx.globalCompositeOperation = "source-atop";
+      overlayCtx.fillStyle = tintHex;
+      overlayCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      overlayCtx.globalCompositeOperation = "source-over";
+
+      ctx.drawImage(overlayCanvas, 0, 0);
+      return createCanvasTexture(canvas);
+    }
+
+    function createOverlayTopTexture(baseTexture, overlayTexture, tintHex = null) {
+      const canvas = document.createElement("canvas");
+      canvas.width = baseTexture.image.width;
+      canvas.height = baseTexture.image.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(baseTexture.image, 0, 0);
+
+      if (tintHex) {
+        const overlayCanvas = document.createElement("canvas");
+        overlayCanvas.width = overlayTexture.image.width;
+        overlayCanvas.height = overlayTexture.image.height;
+        const overlayCtx = overlayCanvas.getContext("2d");
+        overlayCtx.drawImage(overlayTexture.image, 0, 0);
+        overlayCtx.globalCompositeOperation = "source-atop";
+        overlayCtx.fillStyle = tintHex;
+        overlayCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        overlayCtx.globalCompositeOperation = "source-over";
+        ctx.drawImage(overlayCanvas, 0, 0);
+      } else {
+        ctx.drawImage(overlayTexture.image, 0, 0);
+      }
+
+      return createCanvasTexture(canvas);
+    }
+
+    function createPartialOverlayTopTexture(
+      baseTexture,
+      overlayTexture,
+      tintHex,
+      sourceRect,
+      targetRect,
+    ) {
+      const canvas = document.createElement("canvas");
+      canvas.width = baseTexture.image.width;
+      canvas.height = baseTexture.image.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(baseTexture.image, 0, 0);
+
+      const overlayCanvas = document.createElement("canvas");
+      overlayCanvas.width = overlayTexture.image.width;
+      overlayCanvas.height = overlayTexture.image.height;
+      const overlayCtx = overlayCanvas.getContext("2d");
+      overlayCtx.drawImage(overlayTexture.image, 0, 0);
+      overlayCtx.globalCompositeOperation = "source-atop";
+      overlayCtx.fillStyle = tintHex;
+      overlayCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      overlayCtx.globalCompositeOperation = "source-over";
+
+      ctx.drawImage(
+        overlayCanvas,
+        sourceRect.x,
+        sourceRect.y,
+        sourceRect.width,
+        sourceRect.height,
+        targetRect.x,
+        targetRect.y,
+        targetRect.width,
+        targetRect.height,
+      );
+
+      return createCanvasTexture(canvas);
+    }
+
+    function createSpriteTopOverlay(baseTexture, overlayTexture, x, y, size) {
+      const canvas = document.createElement("canvas");
+      canvas.width = baseTexture.image.width;
+      canvas.height = baseTexture.image.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(baseTexture.image, 0, 0);
+      ctx.drawImage(overlayTexture.image, 0, 0, 16, 16, x, y, size, size);
+      return createCanvasTexture(canvas);
+    }
+
+    function createPlantMaterial(map) {
+      return new THREE.MeshLambertMaterial({
+        map,
+        transparent: true,
+        alphaTest: 0.12,
+        side: THREE.DoubleSide,
+      });
+    }
+
+    function createCrossPlant(texture, x, y, z, rotation, scale = 0.62) {
+      const height = scale;
+      const geometry = new THREE.PlaneGeometry(scale, height);
+      const material = createPlantMaterial(texture);
+      const group = new THREE.Group();
+      group.position.set(x, y, z);
+
+      const planeA = new THREE.Mesh(geometry, material);
+      planeA.position.y = height * 0.5;
+      planeA.rotation.y = rotation;
+      group.add(planeA);
+
+      const planeB = new THREE.Mesh(geometry, material.clone());
+      planeB.position.y = height * 0.5;
+      planeB.rotation.y = rotation + Math.PI / 2;
+      group.add(planeB);
+
+      group.traverse((node) => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = false;
+          node.renderOrder = 2;
+        }
+      });
+
+      return group;
+    }
+
+    const [
+      sheepBaseTexture,
+      sheepFurTexture,
+      grassTopTexture,
+      grassSideTexture,
+      grassSideOverlayTexture,
+      grassSnowTexture,
+      pinkPetalsTexture,
+      leafLitterTexture,
+      poppyTexture,
+      dandelionTexture,
+      cornflowerTexture,
+      blueOrchidTexture,
+      azureBluetTexture,
+      pinkTulipTexture,
+      whiteTulipTexture,
+      snowTexture,
+      dirtTexture
+    ] = await Promise.all([
       loadTexture(assets.sheepTexturePath),
-      loadTexture(assets.sheepFurTexturePath)
+      loadTexture(assets.sheepFurTexturePath),
+      loadTexture(assets.grassTopTexturePath),
+      loadTexture(assets.grassSideTexturePath),
+      loadTexture(assets.grassSideOverlayTexturePath),
+      loadTexture(assets.grassSnowTexturePath),
+      loadTexture(assets.pinkPetalsTexturePath),
+      loadTexture(assets.leafLitterTexturePath),
+      loadTexture(assets.poppyTexturePath),
+      loadTexture(assets.dandelionTexturePath),
+      loadTexture(assets.cornflowerTexturePath),
+      loadTexture(assets.blueOrchidTexturePath),
+      loadTexture(assets.azureBluetTexturePath),
+      loadTexture(assets.pinkTulipTexturePath),
+      loadTexture(assets.whiteTulipTexturePath),
+      loadTexture(assets.snowTexturePath),
+      loadTexture(assets.dirtTexturePath)
     ]);
+
+    const springFlowerTextures = [
+      pinkTulipTexture,
+      whiteTulipTexture,
+      azureBluetTexture,
+      pinkTulipTexture,
+    ];
+    const summerFlowerTextures = [
+      poppyTexture,
+      dandelionTexture,
+      cornflowerTexture,
+      blueOrchidTexture,
+      poppyTexture,
+    ];
+
+    const blockMaterialCache = new Map();
+    function getBlockMaterials(cell) {
+      const cacheKey = cell.date + ":" + cell.contributionLevel;
+      if (blockMaterialCache.has(cacheKey)) {
+        return blockMaterialCache.get(cacheKey);
+      }
+
+      let topTexture = dirtTexture;
+      let sideTexture = dirtTexture;
+      if (cell.contributionLevel > 0) {
+        const snowCoverage = getSnowCoverage(cell.date);
+        const hasSnowCover =
+          snowCoverage > 0 &&
+          hashString(cell.date + ":" + cell.contributionLevel) < snowCoverage;
+        if (hasSnowCover) {
+          topTexture = snowTexture;
+          sideTexture = grassSnowTexture;
+        } else {
+          const tintHex = getSeasonalGrassTint(cell.date, cell.contributionLevel);
+          topTexture = createTintedTopTexture(grassTopTexture, tintHex);
+          sideTexture = createTintedSideTexture(
+            grassSideTexture,
+            grassSideOverlayTexture,
+            tintHex,
+          );
+
+          const blossomCoverage = getBlossomCoverage(cell.date);
+          const hasBlossom =
+            blossomCoverage > 0 &&
+            hashString(cell.date + ":blossom:" + cell.week + ":" + cell.dayOfWeek) <
+              blossomCoverage;
+          if (hasBlossom) {
+            topTexture = createOverlayTopTexture(topTexture, pinkPetalsTexture);
+          }
+
+          const leafLitterCoverage = getLeafLitterCoverage(cell.date);
+          const hasLeafLitter =
+            leafLitterCoverage > 0 &&
+            hashString(cell.date + ":leaf:" + cell.week + ":" + cell.dayOfWeek) <
+              leafLitterCoverage;
+          if (hasLeafLitter) {
+            topTexture = createPartialOverlayTopTexture(
+              topTexture,
+              leafLitterTexture,
+              "#8b5a2b",
+              { x: 0, y: 0, width: 8, height: 16 },
+              { x: 0, y: 0, width: 8, height: 16 },
+            );
+          }
+
+        }
+      }
+
+      const materials = [
+        new THREE.MeshLambertMaterial({ map: sideTexture }),
+        new THREE.MeshLambertMaterial({ map: sideTexture }),
+        new THREE.MeshLambertMaterial({ map: topTexture }),
+        new THREE.MeshLambertMaterial({ map: dirtTexture }),
+        new THREE.MeshLambertMaterial({ map: sideTexture }),
+        new THREE.MeshLambertMaterial({ map: sideTexture })
+      ];
+      blockMaterialCache.set(cacheKey, materials);
+      return materials;
+    }
+
+    const blocks = [];
+    sceneData.calendarMetrics.forEach((cell) => {
+      const weekHeights = weekHeightMap.get(cell.week) || [];
+      weekHeights.push(cell.worldHeight);
+      weekHeightMap.set(cell.week, weekHeights);
+
+      const dayHeights = dayHeightMap.get(cell.dayOfWeek) || [];
+      dayHeights.push(cell.worldHeight);
+      dayHeightMap.set(cell.dayOfWeek, dayHeights);
+
+      const block = new THREE.Mesh(
+        new THREE.BoxGeometry(1, cell.worldHeight, 1),
+        getBlockMaterials(cell)
+      );
+      block.position.set(cell.week, cell.worldHeight * 0.5, cell.dayOfWeek);
+      block.castShadow = true;
+      block.receiveShadow = true;
+      scene.add(block);
+      blocks.push(block);
+    });
+
+    const floraDecorations = [];
+    function pickFlowerTexture(textures, seed) {
+      if (textures.length === 0) {
+        return null;
+      }
+      return textures[Math.floor(seed * textures.length) % textures.length];
+    }
+
+    sceneData.calendarMetrics.forEach((cell) => {
+      if (cell.contributionLevel === 0) {
+        return;
+      }
+
+      const snowCoverage = getSnowCoverage(cell.date);
+      const hasSnowCover =
+        snowCoverage > 0 &&
+        hashString(cell.date + ":" + cell.contributionLevel) < snowCoverage;
+      if (hasSnowCover) {
+        return;
+      }
+
+      const springFlowerCoverage = getSpringFlowerCoverage(cell.date);
+      const summerFlowerCoverage = getSummerFlowerCoverage(cell.date);
+      const flowerCoverage = Math.max(springFlowerCoverage, summerFlowerCoverage);
+      if (flowerCoverage <= 0) {
+        return;
+      }
+
+      const seasonalTextures =
+        springFlowerCoverage >= summerFlowerCoverage
+          ? springFlowerTextures
+          : summerFlowerTextures;
+      const flowerRoll = hashString(
+        cell.date + ":flora:" + cell.week + ":" + cell.dayOfWeek,
+      );
+      if (flowerRoll >= flowerCoverage) {
+        return;
+      }
+
+      const flowerCount = flowerRoll < flowerCoverage * 0.28 ? 2 : 1;
+      const offsets =
+        flowerCount === 2
+          ? [
+              [-0.18, 0.12],
+              [0.14, -0.1],
+            ]
+          : [[-0.02, 0.04]];
+
+      offsets.forEach(([offsetX, offsetZ], flowerIndex) => {
+        const texture = pickFlowerTexture(
+          seasonalTextures,
+          hashString(
+            cell.date +
+              ":flora:texture:" +
+              flowerIndex +
+              ":" +
+              cell.week +
+              ":" +
+              cell.dayOfWeek,
+          ),
+        );
+        if (!texture) {
+          return;
+        }
+
+        const scale =
+          0.48 +
+          hashString(
+            cell.date +
+              ":flora:scale:" +
+              flowerIndex +
+              ":" +
+              cell.week +
+              ":" +
+              cell.dayOfWeek,
+          ) *
+            0.1;
+        const rotation =
+          hashString(
+            cell.date +
+              ":flora:rotation:" +
+              flowerIndex +
+              ":" +
+              cell.week +
+              ":" +
+              cell.dayOfWeek,
+          ) *
+          Math.PI;
+        const flower = createCrossPlant(
+          texture,
+          cell.week + offsetX,
+          cell.worldHeight + 0.02,
+          cell.dayOfWeek + offsetZ,
+          rotation,
+          scale,
+        );
+        scene.add(flower);
+        floraDecorations.push(flower);
+      });
+    });
 
     function createSheepMaterial(map) {
       return new THREE.MeshStandardMaterial({
@@ -447,9 +1044,20 @@ ${createHudMarkup(userSnapshot, period, config)}
       headPivot.position.set(0, 18 * unit, -8 * unit);
       root.add(headPivot);
 
+      const headRig = new THREE.Group();
+      headPivot.add(headRig);
+
+      const headNeck = new THREE.Group();
+      headNeck.position.set(0, 2.5 * unit, 1.75 * unit);
+      headRig.add(headNeck);
+
+      const headModel = new THREE.Group();
+      headModel.position.set(0, -2.5 * unit, -1.75 * unit);
+      headNeck.add(headModel);
+
       const headSheared = makeTexturedBox([6, 6, 8], [0, 0], sheepBaseMaterial);
       headSheared.position.set(0, 1 * unit, -2 * unit);
-      headPivot.add(headSheared);
+      headModel.add(headSheared);
 
       const headWool = makeTexturedBox(
         [6, 6, 6],
@@ -460,13 +1068,13 @@ ${createHudMarkup(userSnapshot, period, config)}
         [1.2, 1.2, 1.2]
       );
       headWool.position.set(0, 1 * unit, -1 * unit);
-      headPivot.add(headWool);
+      headModel.add(headWool);
 
       const bounds = new THREE.Box3().setFromObject(root);
       const size = bounds.getSize(new THREE.Vector3());
       root.scale.setScalar(sceneData.sheepTargetHeight / size.y);
 
-      return { root, legPivots, bodyGroup, headPivot };
+      return { root, legPivots, bodyGroup, headPivot, headNeck, headRig };
     }
 
     function createSheepInstance(colorHex) {
@@ -484,7 +1092,7 @@ ${createHudMarkup(userSnapshot, period, config)}
         new THREE.MeshBasicMaterial({
           color: "#000000",
           transparent: true,
-          opacity: 0.22
+          opacity: 0.16
         })
       );
       shadow.rotation.x = -Math.PI / 2;
@@ -499,40 +1107,67 @@ ${createHudMarkup(userSnapshot, period, config)}
       return Math.atan2(flatDelta.x, flatDelta.z) + Math.PI;
     }
 
-    const stepDurationSec = 0.72;
+    const sheepBodyBaseY = 15 * unit;
+    const sheepHeadBaseY = 18 * unit;
+    const sheepHeadBaseZ = -8 * unit;
+    const sheepHeadNeutralRotation = THREE.MathUtils.degToRad(-10);
+    const sheepHeadRigBaseY = 0;
+    const sheepHeadRigBaseZ = 0;
     const grazeAnimationLengthSec = 2.0;
-    const grazeHeadLowerAmount = 6.5 * unit;
-    const grazeHeadForwardAmount = 2.2 * unit;
-    const grazeHeadBaseRotation = THREE.MathUtils.degToRad(18);
-    const grazeHeadChewAmplitude = THREE.MathUtils.degToRad(5.5);
+    const grazeHeadRigLowerAmount = 9 * unit;
+    const grazeHeadBaseRotation = THREE.MathUtils.degToRad(-36);
+    const grazeHeadChewAmplitude = THREE.MathUtils.degToRad(10);
+    const grazeHeadChewDropAmount = 0.5 * unit;
+    const loopDurationSec = Math.max(gifDurationSec, 0.001);
     const clock = new THREE.Clock();
-    let simulatedTimeSec = 0;
+    let autoAnimate = true;
+    let manualSceneTimeSec = 0;
+    let animationTimeOffsetSec = 0;
+
+    function wrapLoopTime(timeSec) {
+      const wrapped = timeSec % loopDurationSec;
+      return wrapped < 0 ? wrapped + loopDurationSec : wrapped;
+    }
+
+    function smootherstep01(value) {
+      const t = THREE.MathUtils.clamp(value, 0, 1);
+      return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+
+    function buildRouteMetrics(points) {
+      const cumulativeDistances = [0];
+      for (let index = 1; index < points.length; index += 1) {
+        cumulativeDistances.push(
+          cumulativeDistances[index - 1] + points[index - 1].distanceTo(points[index]),
+        );
+      }
+      return {
+        points,
+        cumulativeDistances,
+        totalLength: cumulativeDistances[cumulativeDistances.length - 1] || 0,
+      };
+    }
 
     const sheepInstances = sceneData.showSheep
-      ? sceneData.sheepPlans.map((plan, sheepIndex) => ({
-          ...createSheepInstance(plan.colorHex),
-          islandId: plan.islandId,
-          sheepIndex,
-          islandSheepCount: plan.islandSheepCount,
-          route: plan.route.map((cell) =>
+      ? sceneData.sheepPlans.map((plan, sheepIndex) => {
+          const route = plan.route.map((cell) =>
             new THREE.Vector3(cell.week, cell.worldHeight + 0.01, cell.dayOfWeek),
-          ),
-          routeIndex: 0,
-          segmentProgress: 0,
-          moveSpeed: 0.9 + (sheepIndex % 3) * 0.05,
-          walkCycle: sheepIndex * 0.8,
-          state: "walk",
-          stateRemaining:
-            plan.sheepIndex *
-            0.35 *
-            Math.max(1, Math.floor(plan.route.length / Math.max(1, plan.islandSheepCount))),
-          grazeClock: 0,
-          pausedPosition: null,
-          pausedYaw: null,
-          gaitBlend: 1,
-          grazeBlend: 0,
-          rngState: (((plan.islandId + 1) * 1103515245) ^ ((sheepIndex + 3) * 12345)) >>> 0,
-        }))
+          );
+          return {
+            ...createSheepInstance(plan.colorHex),
+            islandId: plan.islandId,
+            sheepIndex,
+            islandSheepCount: plan.islandSheepCount,
+            route,
+            routeMetrics: buildRouteMetrics(route),
+            loopPlan: plan.loopPlan,
+            gaitPhaseOffset: plan.loopPlan.phaseOffsetSec * 5.2 + sheepIndex * 0.85,
+            idlePhaseOffset: plan.loopPlan.phaseOffsetSec * 2.1 + sheepIndex * 0.37,
+            grazePhaseOffset: plan.loopPlan.phaseOffsetSec * 1.35 + sheepIndex * 0.19,
+            state: "walk",
+            routeIndex: 0,
+          };
+        })
       : [];
 
     const contentBounds = new THREE.Box3();
@@ -540,6 +1175,11 @@ ${createHudMarkup(userSnapshot, period, config)}
 
     blocks.forEach((block) => {
       tempBounds.setFromObject(block);
+      contentBounds.union(tempBounds);
+    });
+
+    floraDecorations.forEach((floraDecoration) => {
+      tempBounds.setFromObject(floraDecoration);
       contentBounds.union(tempBounds);
     });
 
@@ -551,6 +1191,71 @@ ${createHudMarkup(userSnapshot, period, config)}
         );
       });
     });
+
+    function getWeekGuideHeight(week) {
+      const heights = weekHeightMap.get(week) || [];
+      return heights.length > 0 ? Math.max(...heights) : 1;
+    }
+
+    function getDayGuideHeight(dayOfWeek) {
+      const heights = dayHeightMap.get(dayOfWeek) || [];
+      if (heights.length === 0) {
+        return 1;
+      }
+      return heights.reduce((sum, height) => sum + height, 0) / heights.length;
+    }
+
+    function buildCalendarGuideSprites() {
+      let previousMonthKey = "";
+      sceneData.calendarMetrics.forEach((cell) => {
+        const date = new Date(cell.date + "T00:00:00Z");
+        const monthKey = date.getUTCFullYear() + "-" + date.getUTCMonth();
+        if (monthKey === previousMonthKey) {
+          return;
+        }
+
+        previousMonthKey = monthKey;
+        const monthSprite = createLabelSprite(monthFormatter.format(date), {
+          fontSizePx: 28,
+          fontWeight: 700,
+          heightWorld: 0.92,
+          paddingX: 10,
+          paddingY: 6,
+          anchorX: 0.5,
+          anchorY: 0,
+        });
+        monthSprite.position.set(
+          cell.week + 0.1,
+          getWeekGuideHeight(cell.week) + 1.95,
+          -1.35,
+        );
+        monthSprite.frustumCulled = false;
+        scene.add(monthSprite);
+      });
+
+      [
+        { dayOfWeek: 1, label: "Mon" },
+        { dayOfWeek: 3, label: "Wed" },
+        { dayOfWeek: 5, label: "Fri" },
+      ].forEach((entry) => {
+        const daySprite = createLabelSprite(entry.label, {
+          fontSizePx: 24,
+          fontWeight: 600,
+          heightWorld: 0.76,
+          paddingX: 10,
+          paddingY: 5,
+          anchorX: 1,
+          anchorY: 0.5,
+        });
+        daySprite.position.set(
+          -1.55,
+          getDayGuideHeight(entry.dayOfWeek) + 0.55,
+          entry.dayOfWeek,
+        );
+        daySprite.frustumCulled = false;
+        scene.add(daySprite);
+      });
+    }
 
     if (contentBounds.isEmpty()) {
       contentBounds.expandByPoint(new THREE.Vector3(0, 0, 0));
@@ -608,6 +1313,11 @@ ${createHudMarkup(userSnapshot, period, config)}
         getBoundsCorners(tempBounds).forEach((corner) => accumulateViewPoint(corner, extents));
       });
 
+      floraDecorations.forEach((floraDecoration) => {
+        tempBounds.setFromObject(floraDecoration);
+        getBoundsCorners(tempBounds).forEach((corner) => accumulateViewPoint(corner, extents));
+      });
+
       sheepInstances.forEach((sheepInstance) => {
         sheepInstance.route.forEach((point) => {
           const sheepMin = new THREE.Vector3(point.x - 0.45, point.y, point.z - 0.45);
@@ -645,274 +1355,246 @@ ${createHudMarkup(userSnapshot, period, config)}
     }
 
     updateCameraFrustum();
+    buildCalendarGuideSprites();
 
-    function normalizeAngle(rad) {
-      let angle = rad;
-      while (angle > Math.PI) angle -= Math.PI * 2;
-      while (angle < -Math.PI) angle += Math.PI * 2;
-      return angle;
-    }
-
-    function dampAngle(current, target, lambda, dt) {
-      const delta = normalizeAngle(target - current);
-      return current + delta * (1 - Math.exp(-lambda * dt));
-    }
-
-    function dampValue(current, target, lambda, dt) {
-      return current + (target - current) * (1 - Math.exp(-lambda * dt));
-    }
-
-    function nextRandom(sheepInstance) {
-      sheepInstance.rngState = (1664525 * sheepInstance.rngState + 1013904223) >>> 0;
-      return sheepInstance.rngState / 4294967296;
-    }
-
-    function resetHeadPose(sheepInstance) {
-      sheepInstance.headPivot.position.set(0, 18 * unit, -8 * unit);
-      sheepInstance.headPivot.rotation.x = THREE.MathUtils.degToRad(-10);
-      sheepInstance.bodyGroup.position.y = 12 * unit + 3 * unit;
-    }
-
-    function startRandomBehavior(sheepInstance) {
-      const roll = nextRandom(sheepInstance);
-      if (roll < 0.18) {
-        sheepInstance.state = "graze";
-        sheepInstance.stateRemaining = 2.2 + nextRandom(sheepInstance) * 2.2;
-        sheepInstance.grazeClock = 0;
-        return;
+    function sampleRouteAtProgress(routeMetrics, progress) {
+      if (routeMetrics.points.length === 0) {
+        return {
+          position: new THREE.Vector3(),
+          direction: new THREE.Vector3(0, 0, 1),
+          distance: 0,
+          routeIndex: 0,
+        };
       }
-      if (roll < 0.42) {
-        sheepInstance.state = "idle";
-        sheepInstance.stateRemaining = 0.8 + nextRandom(sheepInstance) * 1.8;
-        return;
+
+      if (routeMetrics.points.length === 1 || routeMetrics.totalLength <= 1e-6) {
+        return {
+          position: routeMetrics.points[0].clone(),
+          direction: new THREE.Vector3(0, 0, 1),
+          distance: 0,
+          routeIndex: 0,
+        };
       }
-      sheepInstance.state = "walk";
-      sheepInstance.stateRemaining = 0;
+
+      const clampedProgress = THREE.MathUtils.clamp(progress, 0, 1);
+      const targetDistance = routeMetrics.totalLength * clampedProgress;
+
+      for (let index = 1; index < routeMetrics.points.length; index += 1) {
+        const segmentStartDistance = routeMetrics.cumulativeDistances[index - 1];
+        const segmentEndDistance = routeMetrics.cumulativeDistances[index];
+        if (targetDistance > segmentEndDistance && index < routeMetrics.points.length - 1) {
+          continue;
+        }
+
+        const start = routeMetrics.points[index - 1];
+        const end = routeMetrics.points[index];
+        const segmentLength = Math.max(segmentEndDistance - segmentStartDistance, 1e-6);
+        const segmentProgress =
+          (targetDistance - segmentStartDistance) / segmentLength;
+        return {
+          position: start.clone().lerp(end, THREE.MathUtils.clamp(segmentProgress, 0, 1)),
+          direction: end.clone().sub(start).normalize(),
+          distance: targetDistance,
+          routeIndex: index - 1,
+        };
+      }
+
+      const lastIndex = routeMetrics.points.length - 1;
+      return {
+        position: routeMetrics.points[lastIndex].clone(),
+        direction: routeMetrics.points[lastIndex]
+          .clone()
+          .sub(routeMetrics.points[lastIndex - 1])
+          .normalize(),
+        distance: routeMetrics.totalLength,
+        routeIndex: Math.max(0, lastIndex - 1),
+      };
     }
 
-    function applyGrazingPose(sheepInstance, dt) {
-      sheepInstance.grazeClock += dt;
-      const cycleTime = sheepInstance.grazeClock % grazeAnimationLengthSec;
-      const lowerT =
-        cycleTime <= 0.2
-          ? cycleTime / 0.2
-          : cycleTime >= 1.8
-            ? Math.max(0, (2.0 - cycleTime) / 0.2)
-            : 1;
-      const chew =
-        cycleTime >= 0.2 && cycleTime <= 1.8
-          ? Math.sin(((cycleTime - 0.2) / 1.6) * Math.PI * 8)
-          : 0;
-      sheepInstance.headPivot.position.set(
-        0,
-        18 * unit - grazeHeadLowerAmount * lowerT,
-        -8 * unit - grazeHeadForwardAmount * lowerT,
+    function findActiveLoopSegment(loopPlan, localTimeSec) {
+      return (
+        loopPlan.segments.find(
+          (segment, segmentIndex) =>
+            localTimeSec >= segment.startSec &&
+            (localTimeSec < segment.endSec || segmentIndex === loopPlan.segments.length - 1),
+        ) || loopPlan.segments[loopPlan.segments.length - 1]
       );
-      sheepInstance.headPivot.rotation.x =
-        THREE.MathUtils.degToRad(-10) * (1 - lowerT) +
-        (grazeHeadBaseRotation + grazeHeadChewAmplitude * chew) * lowerT;
-      sheepInstance.bodyGroup.position.y = 12 * unit + 3 * unit - lowerT * 0.01;
     }
 
-    function resetSheepState(sheepInstance) {
-      sheepInstance.routeIndex = 0;
-      sheepInstance.segmentProgress = 0;
-      sheepInstance.walkCycle = sheepInstance.sheepIndex * 0.8;
-      sheepInstance.state = "walk";
-      sheepInstance.stateRemaining =
-        sheepInstance.sheepIndex *
-        0.35 *
-        Math.max(
-          1,
-          Math.floor(sheepInstance.route.length / Math.max(1, sheepInstance.islandSheepCount)),
-        );
-      sheepInstance.grazeClock = 0;
-      sheepInstance.pausedPosition = null;
-      sheepInstance.pausedYaw = null;
-      sheepInstance.gaitBlend = 1;
-      sheepInstance.grazeBlend = 0;
-      sheepInstance.rngState =
-        (((sheepInstance.islandId + 1) * 1103515245) ^
-          ((sheepInstance.sheepIndex + 3) * 12345)) >>>
-        0;
-
-      if (sheepInstance.route.length > 0) {
-        const start = sheepInstance.route[0];
-        sheepInstance.root.position.copy(start);
-        sheepInstance.shadow.position.set(start.x, 0.03, start.z);
+    function getSegmentMix(localTimeSec, segment, edgeSec) {
+      if (!segment) {
+        return 0;
       }
-      resetHeadPose(sheepInstance);
+
+      const segmentDuration = Math.max(segment.endSec - segment.startSec, 1e-6);
+      const fadeSec = Math.min(edgeSec, segmentDuration * 0.5);
+      if (fadeSec <= 1e-6) {
+        return localTimeSec >= segment.startSec && localTimeSec <= segment.endSec ? 1 : 0;
+      }
+
+      if (localTimeSec <= segment.startSec - fadeSec || localTimeSec >= segment.endSec + fadeSec) {
+        return 0;
+      }
+      if (localTimeSec < segment.startSec + fadeSec) {
+        return smootherstep01(
+          (localTimeSec - (segment.startSec - fadeSec)) / (fadeSec * 2),
+        );
+      }
+      if (localTimeSec > segment.endSec - fadeSec) {
+        return 1 - smootherstep01(
+          (localTimeSec - (segment.endSec - fadeSec)) / (fadeSec * 2),
+        );
+      }
+      return 1;
     }
 
-    function updateSheep(dt) {
+    function getDominantSegment(loopPlan, kind, localTimeSec, edgeSec) {
+      return loopPlan.segments.reduce(
+        (best, segment) => {
+          if (segment.kind !== kind) {
+            return best;
+          }
+
+          const mix = getSegmentMix(localTimeSec, segment, edgeSec);
+          if (mix > best.mix) {
+            return { mix, segment };
+          }
+          return best;
+        },
+        { mix: 0, segment: null },
+      );
+    }
+
+    function applySheepAtTime(sheepInstance, sceneTimeSec) {
+      const localTimeSec = wrapLoopTime(
+        sceneTimeSec + sheepInstance.loopPlan.phaseOffsetSec,
+      );
+      const activeLoopSegment = findActiveLoopSegment(
+        sheepInstance.loopPlan,
+        localTimeSec,
+      );
+      const segmentDuration = Math.max(
+        activeLoopSegment.endSec - activeLoopSegment.startSec,
+        1e-6,
+      );
+      const segmentT = THREE.MathUtils.clamp(
+        (localTimeSec - activeLoopSegment.startSec) / segmentDuration,
+        0,
+        1,
+      );
+      const routeProgress = THREE.MathUtils.lerp(
+        activeLoopSegment.progressStart,
+        activeLoopSegment.progressEnd,
+        segmentT,
+      );
+      const routeSample = sampleRouteAtProgress(
+        sheepInstance.routeMetrics,
+        routeProgress,
+      );
+
+      sheepInstance.root.position.copy(routeSample.position);
+      if (routeSample.direction.lengthSq() > 1e-6) {
+        sheepInstance.root.rotation.y =
+          Math.atan2(routeSample.direction.x, routeSample.direction.z) + Math.PI;
+      }
+      sheepInstance.shadow.position.set(
+        routeSample.position.x,
+        0.03,
+        routeSample.position.z,
+      );
+
+      const grazeState = getDominantSegment(
+        sheepInstance.loopPlan,
+        "graze",
+        localTimeSec,
+        0.18,
+      );
+      const idleState = getDominantSegment(
+        sheepInstance.loopPlan,
+        "idle",
+        localTimeSec,
+        0.16,
+      );
+      const grazeBlend = grazeState.mix;
+      const idleBlend = Math.max(0, idleState.mix * (1 - grazeBlend));
+      const walkBlend = Math.max(0, 1 - Math.max(grazeBlend, idleBlend));
+      const gaitPhase =
+        sheepInstance.gaitPhaseOffset + routeSample.distance * 7.6;
+      const walkSwing =
+        Math.cos(gaitPhase) *
+        THREE.MathUtils.degToRad(24) *
+        walkBlend;
+
+      sheepInstance.legPivots[0].rotation.x = walkSwing;
+      sheepInstance.legPivots[3].rotation.x = walkSwing;
+      sheepInstance.legPivots[1].rotation.x = -walkSwing;
+      sheepInstance.legPivots[2].rotation.x = -walkSwing;
+
+      let bodyY =
+        sheepBodyBaseY +
+        Math.abs(Math.sin(gaitPhase)) * 0.05 * walkBlend +
+        Math.sin(localTimeSec * 2.1 + sheepInstance.idlePhaseOffset) * 0.006 * idleBlend;
+      let headY = sheepHeadBaseY;
+      let headZ = sheepHeadBaseZ;
+      let headRotX =
+        sheepHeadNeutralRotation +
+        Math.sin(gaitPhase * 0.5) * 0.06 * walkBlend +
+        Math.sin(localTimeSec * 1.3 + sheepInstance.idlePhaseOffset) * 0.03 * idleBlend;
+      let headRigY = sheepHeadRigBaseY;
+      let headRigZ =
+        sheepHeadRigBaseZ +
+        Math.sin(localTimeSec * 1.1 + sheepInstance.idlePhaseOffset) * 0.005 * idleBlend;
+
+      if (grazeBlend > 1e-3 && grazeState.segment) {
+        const grazeLocalTimeSec =
+          Math.max(0, localTimeSec - grazeState.segment.startSec) +
+          sheepInstance.grazePhaseOffset;
+        const cycleTime = grazeLocalTimeSec % grazeAnimationLengthSec;
+        const lowerT =
+          cycleTime <= 0.2
+            ? cycleTime / 0.2
+            : cycleTime >= 1.8
+              ? Math.max(0, (grazeAnimationLengthSec - cycleTime) / 0.2)
+              : 1;
+        const chew =
+          cycleTime >= 0.2 && cycleTime <= 1.8
+            ? Math.sin(((cycleTime - 0.2) / 1.6) * Math.PI * 8)
+            : 0;
+        const chewDip =
+          cycleTime >= 0.2 && cycleTime <= 1.8 ? Math.max(0, chew) : 0;
+        const grazeBodyY =
+          sheepBodyBaseY - lowerT * 0.004 - chewDip * 0.0015;
+        const grazeHeadRigY =
+          sheepHeadRigBaseY -
+          grazeHeadRigLowerAmount * lowerT -
+          grazeHeadChewDropAmount * chewDip * lowerT;
+        const grazeHeadRotX =
+          sheepHeadNeutralRotation * (1 - lowerT) +
+          (grazeHeadBaseRotation - grazeHeadChewAmplitude * chew) * lowerT;
+
+        bodyY = THREE.MathUtils.lerp(bodyY, grazeBodyY, grazeBlend);
+        headRigY = THREE.MathUtils.lerp(headRigY, grazeHeadRigY, grazeBlend);
+        headRotX = THREE.MathUtils.lerp(headRotX, grazeHeadRotX, grazeBlend);
+      }
+
+      sheepInstance.headPivot.position.set(0, headY, headZ);
+      sheepInstance.headRig.position.set(0, headRigY, headRigZ);
+      sheepInstance.headNeck.rotation.x = headRotX;
+      sheepInstance.bodyGroup.position.y = bodyY;
+
+      sheepInstance.state =
+        grazeBlend >= 0.5
+          ? "graze"
+          : idleBlend >= 0.5
+            ? "idle"
+            : activeLoopSegment.kind;
+      sheepInstance.routeIndex = routeSample.routeIndex;
+    }
+
+    function renderSceneAtTime(timeSec) {
       sheepInstances.forEach((sheepInstance) => {
-        if (sheepInstance.route.length < 2) {
-          return;
-        }
-
-        const segmentCount = Math.max(1, sheepInstance.route.length - 1);
-        if (sheepInstance.state === "walk") {
-          sheepInstance.segmentProgress +=
-            (dt * sheepInstance.moveSpeed) / stepDurationSec;
-
-          let crossedSegment = false;
-          while (sheepInstance.segmentProgress >= 1) {
-            sheepInstance.segmentProgress -= 1;
-            sheepInstance.routeIndex = (sheepInstance.routeIndex + 1) % segmentCount;
-            crossedSegment = true;
-          }
-
-          if (crossedSegment) {
-            startRandomBehavior(sheepInstance);
-          }
-
-          const currentIndex = sheepInstance.routeIndex % segmentCount;
-          const start = sheepInstance.route[currentIndex];
-          const end = sheepInstance.route[currentIndex + 1];
-
-          if (sheepInstance.state !== "walk") {
-            sheepInstance.segmentProgress = 0;
-            sheepInstance.pausedPosition = start.clone();
-            sheepInstance.pausedYaw = sheepInstance.root.rotation.y;
-            sheepInstance.gaitBlend = dampValue(sheepInstance.gaitBlend, 0, 10, dt);
-            sheepInstance.grazeBlend = dampValue(
-              sheepInstance.grazeBlend,
-              sheepInstance.state === "graze" ? 1 : 0,
-              7,
-              dt,
-            );
-            sheepInstance.root.position.copy(sheepInstance.pausedPosition);
-            sheepInstance.shadow.position.set(
-              sheepInstance.pausedPosition.x,
-              sheepInstance.pausedPosition.y - start.y + 0.03,
-              sheepInstance.pausedPosition.z,
-            );
-            const transitionSwing =
-              Math.cos(sheepInstance.walkCycle) *
-              THREE.MathUtils.degToRad(24) *
-              sheepInstance.gaitBlend;
-            sheepInstance.legPivots[0].rotation.x = transitionSwing;
-            sheepInstance.legPivots[1].rotation.x = -transitionSwing;
-            sheepInstance.legPivots[2].rotation.x = -transitionSwing;
-            sheepInstance.legPivots[3].rotation.x = transitionSwing;
-            resetHeadPose(sheepInstance);
-            if (sheepInstance.state === "graze") {
-              applyGrazingPose(sheepInstance, 0);
-            }
-            return;
-          }
-
-          const flatDelta = end.clone().sub(start);
-          flatDelta.y = 0;
-          const targetYaw = Math.atan2(flatDelta.x, flatDelta.z) + Math.PI;
-          sheepInstance.root.rotation.y = dampAngle(
-            sheepInstance.root.rotation.y,
-            targetYaw,
-            10.5,
-            dt,
-          );
-
-          sheepInstance.walkCycle += dt * sheepInstance.moveSpeed * 8.4;
-          const position = start.clone().lerp(end, sheepInstance.segmentProgress);
-          sheepInstance.root.position.copy(position);
-          sheepInstance.shadow.position.set(
-            position.x,
-            position.y - start.y + 0.03,
-            position.z,
-          );
-          sheepInstance.gaitBlend = dampValue(sheepInstance.gaitBlend, 1, 10, dt);
-          sheepInstance.grazeBlend = dampValue(sheepInstance.grazeBlend, 0, 8, dt);
-
-          const gaitPhase = sheepInstance.walkCycle;
-          const swing =
-            Math.cos(gaitPhase) *
-            THREE.MathUtils.degToRad(24) *
-            sheepInstance.gaitBlend;
-          sheepInstance.legPivots[0].rotation.x = swing;
-          sheepInstance.legPivots[3].rotation.x = swing;
-          sheepInstance.legPivots[1].rotation.x = -swing;
-          sheepInstance.legPivots[2].rotation.x = -swing;
-          sheepInstance.bodyGroup.position.y =
-            12 * unit +
-            3 * unit +
-            Math.abs(Math.sin(gaitPhase)) * 0.05 * sheepInstance.gaitBlend;
-          sheepInstance.headPivot.position.set(0, 18 * unit, -8 * unit);
-          sheepInstance.headPivot.rotation.x =
-            THREE.MathUtils.degToRad(-10) +
-            Math.sin(gaitPhase * 0.5) * 0.06 * sheepInstance.gaitBlend;
-          return;
-        }
-
-        const currentIndex = sheepInstance.routeIndex % segmentCount;
-        const start = sheepInstance.route[currentIndex];
-        sheepInstance.root.rotation.y = dampAngle(
-          sheepInstance.root.rotation.y,
-          sheepInstance.pausedYaw ?? sheepInstance.root.rotation.y,
-          14,
-          dt,
-        );
-
-        sheepInstance.stateRemaining = Math.max(0, sheepInstance.stateRemaining - dt);
-        sheepInstance.pausedPosition = sheepInstance.pausedPosition || start.clone();
-        sheepInstance.root.position.copy(sheepInstance.pausedPosition);
-        sheepInstance.shadow.position.set(
-          sheepInstance.pausedPosition.x,
-          sheepInstance.pausedPosition.y - start.y + 0.03,
-          sheepInstance.pausedPosition.z,
-        );
-        sheepInstance.gaitBlend = dampValue(sheepInstance.gaitBlend, 0, 10, dt);
-        sheepInstance.grazeBlend = dampValue(
-          sheepInstance.grazeBlend,
-          sheepInstance.state === "graze" ? 1 : 0,
-          7,
-          dt,
-        );
-        const idleSwing =
-          Math.cos(sheepInstance.walkCycle) *
-          THREE.MathUtils.degToRad(24) *
-          sheepInstance.gaitBlend;
-        sheepInstance.legPivots[0].rotation.x = idleSwing;
-        sheepInstance.legPivots[1].rotation.x = -idleSwing;
-        sheepInstance.legPivots[2].rotation.x = -idleSwing;
-        sheepInstance.legPivots[3].rotation.x = idleSwing;
-
-        resetHeadPose(sheepInstance);
-        if (sheepInstance.state === "graze") {
-          applyGrazingPose(sheepInstance, dt);
-        }
-
-        if (sheepInstance.stateRemaining <= 0) {
-          sheepInstance.state = "walk";
-          sheepInstance.grazeClock = 0;
-          sheepInstance.pausedPosition = null;
-          sheepInstance.pausedYaw = null;
-          resetHeadPose(sheepInstance);
-        }
+        applySheepAtTime(sheepInstance, timeSec);
       });
-    }
-
-    function resetSimulation() {
-      simulatedTimeSec = 0;
-      sheepInstances.forEach((sheepInstance) => {
-        resetSheepState(sheepInstance);
-      });
-      renderer.render(scene, camera);
-    }
-
-    let autoAnimate = true;
-
-    function stepSimulationTo(targetTimeSec) {
-      const normalizedTarget = Math.max(0, targetTimeSec);
-      if (normalizedTarget < simulatedTimeSec) {
-        resetSimulation();
-      }
-
-      while (simulatedTimeSec < normalizedTarget - 1e-6) {
-        const dt = Math.min(0.05, normalizedTarget - simulatedTimeSec);
-        updateSheep(dt);
-        simulatedTimeSec += dt;
-      }
-
       renderer.render(scene, camera);
     }
 
@@ -920,20 +1602,20 @@ ${createHudMarkup(userSnapshot, period, config)}
       if (!autoAnimate) {
         return;
       }
-      const dt = Math.min(clock.getDelta(), 0.05);
-      updateSheep(dt);
-      simulatedTimeSec += dt;
-      renderer.render(scene, camera);
+
+      renderSceneAtTime(clock.getElapsedTime() + animationTimeOffsetSec);
       requestAnimationFrame(animate);
     }
 
     window.__setSceneTime = (timeSec) => {
       autoAnimate = false;
-      stepSimulationTo(timeSec);
+      manualSceneTimeSec = Math.max(0, timeSec);
+      renderSceneAtTime(manualSceneTimeSec);
     };
     window.__getSceneState = (timeSec) => {
       autoAnimate = false;
-      stepSimulationTo(timeSec);
+      manualSceneTimeSec = Math.max(0, timeSec);
+      renderSceneAtTime(manualSceneTimeSec);
       return sheepInstances.map((sheepInstance) => ({
         x: sheepInstance.root.position.x,
         y: sheepInstance.root.position.y,
@@ -943,7 +1625,9 @@ ${createHudMarkup(userSnapshot, period, config)}
         shadowY: sheepInstance.shadow.position.y,
         headY: sheepInstance.headPivot.position.y,
         headZ: sheepInstance.headPivot.position.z,
-        headRotX: sheepInstance.headPivot.rotation.x,
+        headRotX: sheepInstance.headNeck.rotation.x,
+        headRigY: sheepInstance.headRig.position.y,
+        headRigZ: sheepInstance.headRig.position.z,
         bodyY: sheepInstance.bodyGroup.position.y,
         routeIndex: sheepInstance.routeIndex,
         leg0: sheepInstance.legPivots[0].rotation.x,
@@ -952,52 +1636,11 @@ ${createHudMarkup(userSnapshot, period, config)}
         leg3: sheepInstance.legPivots[3].rotation.x,
       }));
     };
-    window.__applyLoopClosure = (startStates, endStates, blend) => {
-      autoAnimate = false;
-      sheepInstances.forEach((sheepInstance, index) => {
-        const startState = startStates[index];
-        const endState = endStates[index];
-        if (!startState || !endState) {
-          return;
-        }
-        const t = Math.min(1, Math.max(0, blend));
-        sheepInstance.root.position.set(
-          endState.x + (startState.x - endState.x) * t,
-          endState.y + (startState.y - endState.y) * t,
-          endState.z + (startState.z - endState.z) * t,
-        );
-        sheepInstance.shadow.position.set(
-          sheepInstance.root.position.x,
-          endState.shadowY + (startState.shadowY - endState.shadowY) * t,
-          sheepInstance.root.position.z,
-        );
-        sheepInstance.root.rotation.y =
-          endState.yaw + normalizeAngle(startState.yaw - endState.yaw) * t;
-        sheepInstance.headPivot.position.set(
-          0,
-          endState.headY + (startState.headY - endState.headY) * t,
-          endState.headZ + (startState.headZ - endState.headZ) * t,
-        );
-        sheepInstance.headPivot.rotation.x =
-          endState.headRotX + (startState.headRotX - endState.headRotX) * t;
-        sheepInstance.bodyGroup.position.y =
-          endState.bodyY + (startState.bodyY - endState.bodyY) * t;
-        sheepInstance.legPivots[0].rotation.x =
-          endState.leg0 + (startState.leg0 - endState.leg0) * t;
-        sheepInstance.legPivots[1].rotation.x =
-          endState.leg1 + (startState.leg1 - endState.leg1) * t;
-        sheepInstance.legPivots[2].rotation.x =
-          endState.leg2 + (startState.leg2 - endState.leg2) * t;
-        sheepInstance.legPivots[3].rotation.x =
-          endState.leg3 + (startState.leg3 - endState.leg3) * t;
-      });
-      renderer.render(scene, camera);
-    };
     window.__PROFILE_SCENE_LOOP_DURATION = gifDurationSec;
     window.__resumeScene = () => {
       if (!autoAnimate) {
         autoAnimate = true;
-        clock.getDelta();
+        animationTimeOffsetSec = manualSceneTimeSec - clock.getElapsedTime();
         requestAnimationFrame(animate);
       }
     };
@@ -1005,10 +1648,12 @@ ${createHudMarkup(userSnapshot, period, config)}
     window.addEventListener("resize", () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       updateCameraFrustum();
-      renderer.render(scene, camera);
+      renderSceneAtTime(
+        autoAnimate ? clock.getElapsedTime() + animationTimeOffsetSec : manualSceneTimeSec,
+      );
     });
 
-    resetSimulation();
+    renderSceneAtTime(0);
     window.__PROFILE_SCENE_READY = true;
     requestAnimationFrame(animate);
   </script>
