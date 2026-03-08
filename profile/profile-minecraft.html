@@ -601,6 +601,49 @@
       return createCanvasTexture(canvas);
     }
 
+    function createStackedSideTexture(topTileTexture, fillTileTexture, totalHeightBlocks) {
+      const tileWidth = topTileTexture.image.width;
+      const tileHeight = topTileTexture.image.height;
+      const totalPixelHeight = Math.max(tileHeight, Math.round(tileHeight * totalHeightBlocks));
+      const canvas = document.createElement("canvas");
+      canvas.width = tileWidth;
+      canvas.height = totalPixelHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+
+      const topSegmentHeight = Math.min(tileHeight, totalPixelHeight);
+      ctx.drawImage(
+        topTileTexture.image,
+        0,
+        0,
+        tileWidth,
+        topSegmentHeight,
+        0,
+        0,
+        tileWidth,
+        topSegmentHeight,
+      );
+
+      let destY = topSegmentHeight;
+      while (destY < totalPixelHeight) {
+        const drawHeight = Math.min(tileHeight, totalPixelHeight - destY);
+        ctx.drawImage(
+          fillTileTexture.image,
+          0,
+          0,
+          tileWidth,
+          drawHeight,
+          0,
+          destY,
+          tileWidth,
+          drawHeight,
+        );
+        destY += drawHeight;
+      }
+
+      return createCanvasTexture(canvas);
+    }
+
     function createPartialOverlayTopTexture(
       baseTexture,
       overlayTexture,
@@ -870,14 +913,22 @@
           hashString(cell.date + ":" + cell.contributionLevel) < snowCoverage;
         if (hasSnowCover) {
           topTexture = snowTexture;
-          sideTexture = grassSnowTexture;
+          sideTexture = createStackedSideTexture(
+            grassSnowTexture,
+            dirtTexture,
+            cell.worldHeight,
+          );
         } else {
           const tintHex = getSeasonalGrassTint(cell.date, cell.contributionLevel);
           topTexture = createTintedTopTexture(grassTopTexture, tintHex);
-          sideTexture = createTintedSideTexture(
-            grassSideTexture,
-            grassSideOverlayTexture,
-            tintHex,
+          sideTexture = createStackedSideTexture(
+            createTintedSideTexture(
+              grassSideTexture,
+              grassSideOverlayTexture,
+              tintHex,
+            ),
+            dirtTexture,
+            cell.worldHeight,
           );
 
           const blossomCoverage = getBlossomCoverage(cell.date);
