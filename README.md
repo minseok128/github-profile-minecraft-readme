@@ -107,4 +107,4 @@ npm run typecheck
 
 ## License
 
-MIT. See [LICENSE](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/LICENSE).
+MIT.
