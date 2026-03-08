@@ -2,6 +2,8 @@
 
 GitHub 기여 데이터를 Minecraft 스타일 Three.js 씬으로 렌더링하고, GitHub README에 넣을 수 있는 `PNG`/`GIF` 자산으로 내보내는 프로젝트입니다.
 
+> NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
+
 ## Preview
 
 ![Minecraft contribution world](./profile/profile-minecraft.gif)
@@ -52,9 +54,9 @@ GITHUB_TOKEN=your_token npm run render -- --username your-github-id --output-dir
 
 - `profile/profile-minecraft.png`
 - `profile/profile-minecraft.gif`
-- `profile/profile-minecraft.html`
-- `profile/scene-runtime.js`
 - `profile/README-snippet.md`
+
+`--emit-html`를 직접 사용할 때만 standalone preview HTML과 관련 파일이 추가로 생성됩니다.
 
 ## README Embed
 
@@ -64,6 +66,7 @@ GITHUB_TOKEN=your_token npm run render -- --username your-github-id --output-dir
 
 ```md
 ![Minecraft contribution world](./profile/profile-minecraft.gif)
+<sub>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</sub>
 ```
 
 다른 레포에서 이 이미지를 참조하려면 공개 저장소 기준 raw URL을 사용하면 됩니다.
@@ -107,4 +110,6 @@ npm run typecheck
 
 ## License
 
-MIT.
+MIT. See [LICENSE](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/LICENSE).
+
+The MIT license applies to the original source code in this repository. See [ASSET_NOTICE.md](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/ASSET_NOTICE.md) for third-party asset and output usage notes.

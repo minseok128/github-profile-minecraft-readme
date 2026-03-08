@@ -37,7 +37,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm run render -- --username "${{ github.repository_owner }}" --output-dir profile --emit-html
+          npm run render -- --username "${{ github.repository_owner }}" --output-dir profile
 
       - name: Commit refreshed assets
         run: |
