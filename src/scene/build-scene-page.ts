@@ -52,6 +52,63 @@ const buildCalendarMetrics = (
     });
 };
 
+const formatCompactContributionCount = (value: number): string => {
+    if (value >= 1000) {
+        const compactValue = Math.round((value / 1000) * 10) / 10;
+        return `${compactValue.toFixed(compactValue >= 10 ? 0 : 1)}k`;
+    }
+    return String(value);
+};
+
+const buildMonthGuideEntries = (
+    calendarMetrics: Array<CalendarMetric>,
+): Array<{
+    week: number;
+    monthLabel: string;
+    detailLabel: string;
+}> => {
+    const monthFormatter = new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        timeZone: 'UTC',
+    });
+    const entries: Array<{
+        week: number;
+        monthLabel: string;
+        detailLabel: string;
+    }> = [];
+    let previousMonthKey = '';
+
+    calendarMetrics.forEach((metric) => {
+        const date = new Date(`${metric.date}T00:00:00Z`);
+        const monthKey = `${date.getUTCFullYear()}-${date.getUTCMonth()}`;
+        if (monthKey === previousMonthKey) {
+            return;
+        }
+
+        previousMonthKey = monthKey;
+        const monthlyContributionCount = calendarMetrics
+            .filter((calendarMetric) => {
+                const calendarDate = new Date(`${calendarMetric.date}T00:00:00Z`);
+                return (
+                    calendarDate.getUTCFullYear() === date.getUTCFullYear() &&
+                    calendarDate.getUTCMonth() === date.getUTCMonth()
+                );
+            })
+            .reduce(
+                (sum, calendarMetric) => sum + calendarMetric.contributionCount,
+                0,
+            );
+
+        entries.push({
+            week: metric.week,
+            monthLabel: monthFormatter.format(date),
+            detailLabel: formatCompactContributionCount(monthlyContributionCount),
+        });
+    });
+
+    return entries;
+};
+
 const createHudMarkup = (
     userSnapshot: UserSnapshot,
     period: string,
@@ -78,6 +135,7 @@ export const buildSceneHtml = (
     config: RenderConfig,
 ): string => {
     const calendarMetrics = buildCalendarMetrics(userSnapshot, config.weeks);
+    const monthGuideEntries = buildMonthGuideEntries(calendarMetrics);
     const period = `${calendarMetrics[0].date} / ${
         calendarMetrics[calendarMetrics.length - 1].date
     }`;
@@ -90,6 +148,7 @@ export const buildSceneHtml = (
         showSheep: config.showSheep,
         sheepTargetHeight: SHEEP_TARGET_HEIGHT_BLOCKS,
         calendarMetrics,
+        monthGuideEntries,
         sheepPlans: config.showSheep
             ? buildSheepPopulationPlans(calendarMetrics, config.gif.durationSec)
             : [],
@@ -234,12 +293,7 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
     const camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 240);
     const isoDirection = new THREE.Vector3(1, 1, 1).normalize();
     const cameraFitPadding = sceneData.background === "transparent" ? 1.005 : 1.04;
-    const monthFormatter = new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      timeZone: "UTC"
-    });
     const weekHeightMap = new Map();
-    const dayHeightMap = new Map();
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x7b5a3d, 1.08));
 
@@ -294,52 +348,116 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       return texture;
     }
 
-    function createLabelSprite(text, options) {
+    function addRoundedRectPath(context, x, y, width, height, radius) {
+      const clampedRadius = Math.min(radius, width * 0.5, height * 0.5);
+      context.beginPath();
+      context.moveTo(x + clampedRadius, y);
+      context.lineTo(x + width - clampedRadius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + clampedRadius);
+      context.lineTo(x + width, y + height - clampedRadius);
+      context.quadraticCurveTo(x + width, y + height, x + width - clampedRadius, y + height);
+      context.lineTo(x + clampedRadius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - clampedRadius);
+      context.lineTo(x, y + clampedRadius);
+      context.quadraticCurveTo(x, y, x + clampedRadius, y);
+      context.closePath();
+    }
+
+    function createLabelMarker(lines, options) {
       const {
-        fontSizePx,
-        fontWeight,
         heightWorld,
         paddingX,
         paddingY,
         anchorX,
         anchorY,
+        stemHeightWorld,
+        stemColor,
+        lineGapPx = 4,
       } = options;
-      const resolutionScale = 2;
+      const resolutionScale = 3;
+      const normalizedLines = lines.map((line) => ({
+        color: line.color || "rgba(31, 41, 30, 0.97)",
+        fontSizePx: line.fontSizePx,
+        fontWeight: line.fontWeight,
+        text: line.text,
+      }));
       const measureCanvas = document.createElement("canvas");
       const measureContext = measureCanvas.getContext("2d");
-      const font = fontWeight + " " + fontSizePx + "px " + '"SF Pro Display", "Segoe UI", sans-serif';
-      measureContext.font = font;
-      const textWidth = Math.ceil(measureContext.measureText(text).width);
+      const lineMeasurements = normalizedLines.map((line) => {
+        const font =
+          line.fontWeight +
+          " " +
+          line.fontSizePx +
+          "px " +
+          '"SF Pro Display", "Segoe UI", sans-serif';
+        measureContext.font = font;
+        return {
+          ...line,
+          font,
+          width: Math.ceil(measureContext.measureText(line.text).width),
+        };
+      });
+      const maxLineFontSize = lineMeasurements.reduce(
+        (maxSize, line) => Math.max(maxSize, line.fontSizePx),
+        0,
+      );
+      const textWidth = lineMeasurements.reduce(
+        (maxWidth, line) => Math.max(maxWidth, line.width),
+        0,
+      );
+      const textHeight =
+        lineMeasurements.reduce(
+          (sum, line) => sum + line.fontSizePx,
+          0,
+        ) +
+        Math.max(0, lineMeasurements.length - 1) * lineGapPx;
       const canvasWidth = Math.max(
         1,
         Math.ceil((textWidth + paddingX * 2) * resolutionScale),
       );
       const canvasHeight = Math.max(
         1,
-        Math.ceil((fontSizePx + paddingY * 2) * resolutionScale),
+        Math.ceil((textHeight + paddingY * 2) * resolutionScale),
       );
       const canvas = document.createElement("canvas");
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
       const context = canvas.getContext("2d");
       context.scale(resolutionScale, resolutionScale);
-      context.font = font;
-      context.textAlign = "left";
-      context.textBaseline = "middle";
+      const drawWidth = canvasWidth / resolutionScale;
+      const drawHeight = canvasHeight / resolutionScale;
+      context.textAlign = "center";
+      context.textBaseline = "alphabetic";
       context.lineJoin = "round";
-      context.strokeStyle = "rgba(255, 255, 255, 0.92)";
-      context.lineWidth = Math.max(2.5, fontSizePx * 0.16);
-      context.strokeText(
-        text,
-        paddingX,
-        (canvasHeight / resolutionScale) * 0.5,
+      context.shadowColor = "rgba(255, 255, 255, 0.3)";
+      context.shadowBlur = 8;
+      addRoundedRectPath(
+        context,
+        1.5,
+        1.5,
+        drawWidth - 3,
+        drawHeight - 3,
+        Math.max(8, maxLineFontSize * 0.38),
       );
-      context.fillStyle = "rgba(17, 24, 39, 0.94)";
-      context.fillText(
-        text,
-        paddingX,
-        (canvasHeight / resolutionScale) * 0.5,
-      );
+      context.fillStyle = "rgba(246, 248, 239, 0.9)";
+      context.fill();
+      context.shadowBlur = 0;
+
+      const totalTextBlockHeight =
+        lineMeasurements.reduce((sum, line) => sum + line.fontSizePx, 0) +
+        Math.max(0, lineMeasurements.length - 1) * lineGapPx;
+      let currentTop =
+        (drawHeight - totalTextBlockHeight) * 0.5;
+      lineMeasurements.forEach((line) => {
+        context.font = line.font;
+        context.strokeStyle = "rgba(255, 255, 255, 0.92)";
+        context.lineWidth = Math.max(1.6, line.fontSizePx * 0.14);
+        const baselineY = currentTop + line.fontSizePx * 0.84;
+        context.strokeText(line.text, drawWidth * 0.5, baselineY);
+        context.fillStyle = line.color;
+        context.fillText(line.text, drawWidth * 0.5, baselineY);
+        currentTop += line.fontSizePx + lineGapPx;
+      });
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -347,18 +465,57 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       texture.minFilter = THREE.LinearFilter;
       texture.generateMipmaps = false;
 
-      const material = new THREE.SpriteMaterial({
+      const aspect = canvas.width / Math.max(canvas.height, 1);
+      const labelWidthWorld = heightWorld * aspect;
+      const group = new THREE.Group();
+
+      const stem = new THREE.Mesh(
+        new THREE.BoxGeometry(0.045, stemHeightWorld, 0.045),
+        new THREE.MeshLambertMaterial({
+          color: stemColor,
+        }),
+      );
+      stem.position.y = stemHeightWorld * 0.5;
+      stem.castShadow = true;
+      stem.receiveShadow = true;
+      group.add(stem);
+
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.11, 0.06, 0.11),
+        new THREE.MeshLambertMaterial({
+          color: stemColor,
+        }),
+      );
+      cap.position.y = stemHeightWorld;
+      cap.castShadow = true;
+      cap.receiveShadow = true;
+      group.add(cap);
+
+      const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
         depthWrite: false,
         depthTest: false,
+        side: THREE.DoubleSide,
       });
-      const sprite = new THREE.Sprite(material);
-      sprite.center.set(anchorX, anchorY);
-      sprite.renderOrder = 12;
-      const aspect = canvas.width / Math.max(canvas.height, 1);
-      sprite.scale.set(heightWorld * aspect, heightWorld, 1);
-      return sprite;
+      const panel = new THREE.Mesh(
+        new THREE.PlaneGeometry(labelWidthWorld, heightWorld),
+        material,
+      );
+      panel.renderOrder = 12;
+      panel.position.set(
+        (0.5 - anchorX) * labelWidthWorld,
+        stemHeightWorld + (0.5 - anchorY) * heightWorld + 0.08,
+        0,
+      );
+      panel.quaternion.copy(camera.quaternion);
+      group.add(panel);
+
+      group.traverse((node) => {
+        node.frustumCulled = false;
+      });
+
+      return group;
     }
 
     function clampChannel(value) {
@@ -808,10 +965,6 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       weekHeights.push(cell.worldHeight);
       weekHeightMap.set(cell.week, weekHeights);
 
-      const dayHeights = dayHeightMap.get(cell.dayOfWeek) || [];
-      dayHeights.push(cell.worldHeight);
-      dayHeightMap.set(cell.dayOfWeek, dayHeights);
-
       const block = new THREE.Mesh(
         new THREE.BoxGeometry(1, cell.worldHeight, 1),
         getBlockMaterials(cell)
@@ -1197,63 +1350,40 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       return heights.length > 0 ? Math.max(...heights) : 1;
     }
 
-    function getDayGuideHeight(dayOfWeek) {
-      const heights = dayHeightMap.get(dayOfWeek) || [];
-      if (heights.length === 0) {
-        return 1;
-      }
-      return heights.reduce((sum, height) => sum + height, 0) / heights.length;
-    }
+    function buildCalendarGuideMarkers() {
+      const guideStemBaseY = 0.03;
+      const guideCardBottomY = Math.max(contentBounds.max.y + 0.98, 3.45);
 
-    function buildCalendarGuideSprites() {
-      let previousMonthKey = "";
-      sceneData.calendarMetrics.forEach((cell) => {
-        const date = new Date(cell.date + "T00:00:00Z");
-        const monthKey = date.getUTCFullYear() + "-" + date.getUTCMonth();
-        if (monthKey === previousMonthKey) {
-          return;
-        }
-
-        previousMonthKey = monthKey;
-        const monthSprite = createLabelSprite(monthFormatter.format(date), {
-          fontSizePx: 28,
-          fontWeight: 700,
-          heightWorld: 0.92,
-          paddingX: 10,
-          paddingY: 6,
+      sceneData.monthGuideEntries.forEach((entry) => {
+        const baseY = guideStemBaseY;
+        const monthMarker = createLabelMarker([
+          {
+            text: entry.monthLabel,
+            fontSizePx: 36,
+            fontWeight: 700,
+          },
+          {
+            text: entry.detailLabel,
+            fontSizePx: 36,
+            fontWeight: 600,
+            color: "rgba(72, 86, 61, 0.92)",
+          },
+        ], {
+          heightWorld: 1.56,
+          paddingX: 24,
+          paddingY: 18,
           anchorX: 0.5,
           anchorY: 0,
+          stemHeightWorld: Math.max(0.56, guideCardBottomY - baseY - 0.08),
+          stemColor: "#7b8f71",
+          lineGapPx: 6,
         });
-        monthSprite.position.set(
-          cell.week + 0.1,
-          getWeekGuideHeight(cell.week) + 1.95,
-          -1.35,
+        monthMarker.position.set(
+          entry.week + 0.14,
+          baseY,
+          -0.42,
         );
-        monthSprite.frustumCulled = false;
-        scene.add(monthSprite);
-      });
-
-      [
-        { dayOfWeek: 1, label: "Mon" },
-        { dayOfWeek: 3, label: "Wed" },
-        { dayOfWeek: 5, label: "Fri" },
-      ].forEach((entry) => {
-        const daySprite = createLabelSprite(entry.label, {
-          fontSizePx: 24,
-          fontWeight: 600,
-          heightWorld: 0.76,
-          paddingX: 10,
-          paddingY: 5,
-          anchorX: 1,
-          anchorY: 0.5,
-        });
-        daySprite.position.set(
-          -1.55,
-          getDayGuideHeight(entry.dayOfWeek) + 0.55,
-          entry.dayOfWeek,
-        );
-        daySprite.frustumCulled = false;
-        scene.add(daySprite);
+        scene.add(monthMarker);
       });
     }
 
@@ -1355,7 +1485,7 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
     }
 
     updateCameraFrustum();
-    buildCalendarGuideSprites();
+    buildCalendarGuideMarkers();
 
     function sampleRouteAtProgress(routeMetrics, progress) {
       if (routeMetrics.points.length === 0) {
