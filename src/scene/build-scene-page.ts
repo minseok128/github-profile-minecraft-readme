@@ -977,88 +977,42 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       }),
     ];
 
-    function countGrassNeighbors(cell) {
+    const selectedWaterKeys = new Set(
+      sceneData.calendarMetrics
+        .filter((cell) => cell.contributionLevel === 0)
+        .map((cell) => cell.week + ":" + cell.dayOfWeek),
+    );
+    const baseWaterGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const waterGeometryCache = new Map();
+
+    function getWaterGeometryKey(cell) {
       return [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ].reduce((count, [weekOffset, dayOffset]) => {
-        const neighbor = calendarCellMap.get(
-          (cell.week + weekOffset) + ":" + (cell.dayOfWeek + dayOffset),
-        );
-        return neighbor && neighbor.contributionLevel > 0 ? count + 1 : count;
-      }, 0);
+        selectedWaterKeys.has(cell.week + 1 + ":" + cell.dayOfWeek) ? "0" : "1",
+        selectedWaterKeys.has(cell.week - 1 + ":" + cell.dayOfWeek) ? "0" : "1",
+        "1",
+        "1",
+        selectedWaterKeys.has(cell.week + ":" + (cell.dayOfWeek + 1)) ? "0" : "1",
+        selectedWaterKeys.has(cell.week + ":" + (cell.dayOfWeek - 1)) ? "0" : "1",
+      ].join("");
     }
 
-    function countSelectedWaterNeighbors(cell, selectedWaterKeys) {
-      return [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ].reduce((count, [weekOffset, dayOffset]) => {
-        return selectedWaterKeys.has(
-          (cell.week + weekOffset) + ":" + (cell.dayOfWeek + dayOffset),
-        )
-          ? count + 1
-          : count;
-      }, 0);
+    function getWaterBlockGeometry(cell) {
+      const key = getWaterGeometryKey(cell);
+      if (waterGeometryCache.has(key)) {
+        return waterGeometryCache.get(key);
+      }
+
+      const geometry = baseWaterGeometry.clone();
+      const visibleFaces = key.split("").map((value) => value === "1");
+      geometry.clearGroups();
+      baseWaterGeometry.groups.forEach((group, faceIndex) => {
+        if (visibleFaces[faceIndex]) {
+          geometry.addGroup(group.start, group.count, group.materialIndex);
+        }
+      });
+      waterGeometryCache.set(key, geometry);
+      return geometry;
     }
-
-    const summerWaterCells = sceneData.calendarMetrics.filter((cell) => {
-      if (cell.contributionLevel > 0) {
-        return false;
-      }
-      if (getSnowCoverage(cell.date) > 0) {
-        return false;
-      }
-      if (getSummerWaterCoverage(cell.date) <= 0) {
-        return false;
-      }
-      return countGrassNeighbors(cell) > 0;
-    });
-    const selectedWaterKeys = new Set();
-
-    summerWaterCells.forEach((cell) => {
-      const grassNeighborCount = countGrassNeighbors(cell);
-      if (grassNeighborCount < 2) {
-        return;
-      }
-
-      const seedChance =
-        getSummerWaterCoverage(cell.date) *
-        Math.min(1, 0.7 + grassNeighborCount * 0.18);
-      const seedRoll = hashString(
-        cell.date + ":water:seed:" + cell.week + ":" + cell.dayOfWeek,
-      );
-      if (seedRoll < seedChance) {
-        selectedWaterKeys.add(cell.week + ":" + cell.dayOfWeek);
-      }
-    });
-
-    summerWaterCells.forEach((cell) => {
-      const cellKey = cell.week + ":" + cell.dayOfWeek;
-      if (selectedWaterKeys.has(cellKey)) {
-        return;
-      }
-
-      const grassNeighborCount = countGrassNeighbors(cell);
-      const waterNeighborCount = countSelectedWaterNeighbors(cell, selectedWaterKeys);
-      if (waterNeighborCount <= 0 || grassNeighborCount <= 0) {
-        return;
-      }
-
-      const expansionChance =
-        getSummerWaterCoverage(cell.date) *
-        Math.min(1, 0.32 + waterNeighborCount * 0.34 + grassNeighborCount * 0.12);
-      const expansionRoll = hashString(
-        cell.date + ":water:expand:" + cell.week + ":" + cell.dayOfWeek,
-      );
-      if (expansionRoll < expansionChance) {
-        selectedWaterKeys.add(cellKey);
-      }
-    });
 
     const blockMaterialCache = new Map();
     function getBlockMaterials(cell) {
@@ -1140,7 +1094,9 @@ ${createHudMarkup(userSnapshot, period, calendarMetrics.length, config)}
       const isWaterCell = selectedWaterKeys.has(cell.week + ":" + cell.dayOfWeek);
 
       const block = new THREE.Mesh(
-        new THREE.BoxGeometry(1, cell.worldHeight, 1),
+        isWaterCell
+          ? getWaterBlockGeometry(cell)
+          : new THREE.BoxGeometry(1, cell.worldHeight, 1),
         getBlockMaterials(cell)
       );
       block.position.set(cell.week, cell.worldHeight * 0.5, cell.dayOfWeek);
