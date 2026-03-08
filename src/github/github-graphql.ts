@@ -62,6 +62,11 @@ export interface GitHubFirstResponse {
     }>;
 }
 
+export interface ContributionWindow {
+    from: string;
+    to: string;
+}
+
 interface GitHubNextResponse {
     data?: {
         user: {
@@ -97,17 +102,20 @@ export const fetchFirstGithubProfile = async (
     token: string,
     username: string,
     year?: number,
+    contributionWindow?: ContributionWindow,
 ): Promise<GitHubFirstResponse> => {
-    const yearArgs = year
+    const contributionArgs = year
         ? `(from: "${year}-01-01T00:00:00.000Z", to: "${year}-12-31T23:59:59.000Z")`
-        : '';
+        : contributionWindow
+          ? `(from: "${contributionWindow.from}", to: "${contributionWindow.to}")`
+          : '';
 
     return postGraphql<GitHubFirstResponse>(
         token,
         `
             query($login: String!) {
                 user(login: $login) {
-                    contributionsCollection${yearArgs} {
+                    contributionsCollection${contributionArgs} {
                         contributionCalendar {
                             totalContributions
                             weeks {
@@ -184,8 +192,14 @@ export const fetchGithubProfile = async (
     username: string,
     maxRepos: number,
     year?: number,
+    contributionWindow?: ContributionWindow,
 ): Promise<GitHubFirstResponse> => {
-    const initial = await fetchFirstGithubProfile(token, username, year);
+    const initial = await fetchFirstGithubProfile(
+        token,
+        username,
+        year,
+        contributionWindow,
+    );
     const user = initial.data?.user;
 
     if (!user) {
@@ -216,4 +230,3 @@ export const fetchGithubProfile = async (
 
     return initial;
 };
-
