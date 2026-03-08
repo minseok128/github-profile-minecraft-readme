@@ -47,16 +47,39 @@ const createReadmeSnippet = (
     return [
         '# README Embed',
         '',
-        'Use the generated asset directly in your profile README:',
+        'Use the generated asset directly in your profile README with an unofficial notice:',
         '',
         '```md',
         `![Minecraft contribution world](${relativeAsset})`,
+        '<sub>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</sub>',
         '```',
         '',
         `PNG enabled: ${config.createPng}`,
         `GIF enabled: ${config.createGif}`,
         `Preview HTML enabled: ${config.emitHtml}`,
     ].join('\n');
+};
+
+const removeStandalonePreviewOutputs = async (
+    outputDir: string,
+    baseName: string,
+): Promise<void> => {
+    await Promise.all([
+        rm(path.join(outputDir, 'assets'), {
+            recursive: true,
+            force: true,
+        }),
+        rm(path.join(outputDir, `${baseName}.html`), {
+            force: true,
+        }),
+        rm(path.join(outputDir, SCENE_RUNTIME_BUNDLE_FILENAME), {
+            force: true,
+        }),
+        rm(path.join(outputDir, 'vendor'), {
+            recursive: true,
+            force: true,
+        }),
+    ]);
 };
 
 const writeStandalonePreview = async (
@@ -262,6 +285,8 @@ export const exportProfileAssets = async (
                 standaloneHtml,
                 sceneRuntimeScript,
             );
+        } else {
+            await removeStandalonePreviewOutputs(outputDir, config.baseName);
         }
 
         await writeTextFile(
