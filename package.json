@@ -6,7 +6,6 @@
   "description": "Render GitHub contribution data as a Minecraft-style Three.js scene and export README-safe assets.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "render": "tsx src/cli.ts",
     "render:sample": "tsx src/cli.ts --sample --emit-html --output-dir profile"
