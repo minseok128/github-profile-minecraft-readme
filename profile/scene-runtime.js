@@ -26590,13 +26590,15 @@ var buildSheepRuntime = ({
 };
 
 // src/scene/runtime/terrain/flora.ts
+var MINECRAFT_FLOWER_BASE_SCALE = 0.84;
+var MINECRAFT_FLOWER_SCALE_VARIANCE = 0.12;
 var createPlantMaterial = (map) => new MeshLambertMaterial({
   map,
   transparent: true,
   alphaTest: 0.12,
   side: DoubleSide
 });
-var createCrossPlant = (texture, x, y, z, rotation, scale = 0.62) => {
+var createCrossPlant = (texture, x, y, z, rotation, scale = MINECRAFT_FLOWER_BASE_SCALE) => {
   const height = scale;
   const geometry = new PlaneGeometry(scale, height);
   const material = createPlantMaterial(texture);
@@ -26690,9 +26692,9 @@ var buildTerrainAndFlora = (scene, sceneData, terrainTextures) => {
       if (!texture) {
         return;
       }
-      const scale = 0.48 + terrainTextures.hashString(
+      const scale = MINECRAFT_FLOWER_BASE_SCALE + terrainTextures.hashString(
         `${cell.date}:flora:scale:${flowerIndex}:${cell.week}:${cell.dayOfWeek}`
-      ) * 0.1;
+      ) * MINECRAFT_FLOWER_SCALE_VARIANCE;
       const rotation = terrainTextures.hashString(
         `${cell.date}:flora:rotation:${flowerIndex}:${cell.week}:${cell.dayOfWeek}`
       ) * Math.PI;

@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import type { SceneData } from '../types.js';
 import type { TerrainTextureContext } from '../textures/seasonal.js';
 
+const MINECRAFT_FLOWER_BASE_SCALE = 0.84;
+const MINECRAFT_FLOWER_SCALE_VARIANCE = 0.12;
+
 const createPlantMaterial = (map: THREE.Texture): THREE.MeshLambertMaterial =>
     new THREE.MeshLambertMaterial({
         map,
@@ -16,7 +19,7 @@ const createCrossPlant = (
     y: number,
     z: number,
     rotation: number,
-    scale = 0.62,
+    scale = MINECRAFT_FLOWER_BASE_SCALE,
 ): THREE.Group => {
     const height = scale;
     const geometry = new THREE.PlaneGeometry(scale, height);
@@ -151,11 +154,11 @@ export const buildTerrainAndFlora = (
             }
 
             const scale =
-                0.48 +
+                MINECRAFT_FLOWER_BASE_SCALE +
                 terrainTextures.hashString(
                     `${cell.date}:flora:scale:${flowerIndex}:${cell.week}:${cell.dayOfWeek}`,
                 ) *
-                    0.1;
+                    MINECRAFT_FLOWER_SCALE_VARIANCE;
             const rotation =
                 terrainTextures.hashString(
                     `${cell.date}:flora:rotation:${flowerIndex}:${cell.week}:${cell.dayOfWeek}`,
