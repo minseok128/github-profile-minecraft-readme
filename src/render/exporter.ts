@@ -8,7 +8,13 @@ import type {
     RenderConfig,
     UserSnapshot,
 } from '../types.js';
+import {
+    STANDALONE_SCENE_ASSET_URLS,
+    buildSceneHtml,
+} from '../scene/build-scene-page.js';
+import { SCENE_RUNTIME_BUNDLE_FILENAME } from '../scene/runtime/constants.js';
 import { ensureDir, writeTextFile } from '../utils.js';
+import { buildSceneRuntimeBundle } from './scene-runtime-bundle.js';
 import { startStaticSceneServer } from './static-server.js';
 
 const runCommand = async (command: string, args: Array<string>): Promise<void> =>
@@ -58,121 +64,51 @@ const writeStandalonePreview = async (
     outputDir: string,
     baseName: string,
     html: string,
+    sceneRuntimeScript: string,
 ): Promise<string> => {
-    const previewHtml = html
-        .replaceAll('/vendor/three.module.js', './vendor/three.module.js')
-        .replaceAll('/assets/sheep.png', './assets/sheep.png')
-        .replaceAll('/assets/sheep_fur.png', './assets/sheep_fur.png')
-        .replaceAll('/assets/grass_block_top.png', './assets/grass_block_top.png')
-        .replaceAll('/assets/grass_block_side.png', './assets/grass_block_side.png')
-        .replaceAll(
-            '/assets/grass_block_side_overlay.png',
-            './assets/grass_block_side_overlay.png',
-        )
-        .replaceAll('/assets/grass_block_snow.png', './assets/grass_block_snow.png')
-        .replaceAll('/assets/pink_petals.png', './assets/pink_petals.png')
-        .replaceAll('/assets/leaf_litter.png', './assets/leaf_litter.png')
-        .replaceAll('/assets/poppy.png', './assets/poppy.png')
-        .replaceAll('/assets/dandelion.png', './assets/dandelion.png')
-        .replaceAll('/assets/cornflower.png', './assets/cornflower.png')
-        .replaceAll('/assets/blue_orchid.png', './assets/blue_orchid.png')
-        .replaceAll('/assets/azure_bluet.png', './assets/azure_bluet.png')
-        .replaceAll('/assets/pink_tulip.png', './assets/pink_tulip.png')
-        .replaceAll('/assets/white_tulip.png', './assets/white_tulip.png')
-        .replaceAll('/assets/snow.png', './assets/snow.png')
-        .replaceAll('/assets/dirt.png', './assets/dirt.png')
-        .replaceAll('/assets/water_top.png', './assets/water_top.png')
-        .replaceAll('/assets/water_side.png', './assets/water_side.png');
-    const vendorDir = path.join(outputDir, 'vendor');
+    await rm(path.join(outputDir, 'vendor'), {
+        recursive: true,
+        force: true,
+    });
     const assetDir = path.join(outputDir, 'assets');
-    await ensureDir(vendorDir);
     await ensureDir(assetDir);
-    await copyFile(
-        path.join(projectRoot, 'node_modules/three/build/three.module.js'),
-        path.join(vendorDir, 'three.module.js'),
+    const assetFiles = [
+        'sheep.png',
+        'sheep_fur.png',
+        'grass_block_top.png',
+        'grass_block_side.png',
+        'grass_block_side_overlay.png',
+        'grass_block_snow.png',
+        'pink_petals.png',
+        'leaf_litter.png',
+        'poppy.png',
+        'dandelion.png',
+        'cornflower.png',
+        'blue_orchid.png',
+        'azure_bluet.png',
+        'pink_tulip.png',
+        'white_tulip.png',
+        'snow.png',
+        'dirt.png',
+        'water_top.png',
+        'water_side.png',
+    ];
+
+    await Promise.all(
+        assetFiles.map((assetFile) =>
+            copyFile(
+                path.join(projectRoot, 'assets', assetFile),
+                path.join(assetDir, assetFile),
+            ),
+        ),
     );
-    await copyFile(
-        path.join(projectRoot, 'node_modules/three/build/three.core.js'),
-        path.join(vendorDir, 'three.core.js'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/sheep.png'),
-        path.join(assetDir, 'sheep.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/sheep_fur.png'),
-        path.join(assetDir, 'sheep_fur.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/grass_block_top.png'),
-        path.join(assetDir, 'grass_block_top.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/grass_block_side.png'),
-        path.join(assetDir, 'grass_block_side.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/grass_block_side_overlay.png'),
-        path.join(assetDir, 'grass_block_side_overlay.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/grass_block_snow.png'),
-        path.join(assetDir, 'grass_block_snow.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/pink_petals.png'),
-        path.join(assetDir, 'pink_petals.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/leaf_litter.png'),
-        path.join(assetDir, 'leaf_litter.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/poppy.png'),
-        path.join(assetDir, 'poppy.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/dandelion.png'),
-        path.join(assetDir, 'dandelion.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/cornflower.png'),
-        path.join(assetDir, 'cornflower.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/blue_orchid.png'),
-        path.join(assetDir, 'blue_orchid.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/azure_bluet.png'),
-        path.join(assetDir, 'azure_bluet.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/pink_tulip.png'),
-        path.join(assetDir, 'pink_tulip.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/white_tulip.png'),
-        path.join(assetDir, 'white_tulip.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/snow.png'),
-        path.join(assetDir, 'snow.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/dirt.png'),
-        path.join(assetDir, 'dirt.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/water_top.png'),
-        path.join(assetDir, 'water_top.png'),
-    );
-    await copyFile(
-        path.join(projectRoot, 'assets/water_side.png'),
-        path.join(assetDir, 'water_side.png'),
+
+    await writeTextFile(
+        path.join(outputDir, SCENE_RUNTIME_BUNDLE_FILENAME),
+        sceneRuntimeScript,
     );
     const htmlPath = path.join(outputDir, `${baseName}.html`);
-    await writeTextFile(htmlPath, previewHtml);
+    await writeTextFile(htmlPath, html);
     return htmlPath;
 };
 
@@ -185,7 +121,12 @@ export const exportProfileAssets = async (
     const outputDir = path.resolve(projectRoot, config.outputDir);
     await ensureDir(outputDir);
 
-    const server = await startStaticSceneServer(projectRoot, html);
+    const sceneRuntimeScript = await buildSceneRuntimeBundle(projectRoot);
+    const server = await startStaticSceneServer(
+        projectRoot,
+        html,
+        sceneRuntimeScript,
+    );
     const browser = await chromium.launch({
         channel: 'chromium',
         headless: true,
@@ -309,11 +250,17 @@ export const exportProfileAssets = async (
         }
 
         if (config.emitHtml) {
+            const standaloneHtml = buildSceneHtml(
+                userSnapshot,
+                config,
+                STANDALONE_SCENE_ASSET_URLS,
+            );
             exportedAssets.htmlPath = await writeStandalonePreview(
                 projectRoot,
                 outputDir,
                 config.baseName,
-                html,
+                standaloneHtml,
+                sceneRuntimeScript,
             );
         }
 

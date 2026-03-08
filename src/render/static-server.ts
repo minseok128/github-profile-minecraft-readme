@@ -19,6 +19,7 @@ const getContentType = (filePath: string): string =>
 export const startStaticSceneServer = async (
     projectRoot: string,
     html: string,
+    sceneRuntimeScript: string,
 ): Promise<StaticSceneServer> => {
     const server = createServer(async (request, response) => {
         try {
@@ -32,6 +33,14 @@ export const startStaticSceneServer = async (
                     'content-type': 'text/html; charset=utf-8',
                 });
                 response.end(html);
+                return;
+            }
+
+            if (requestUrl.pathname === '/scene-runtime.js') {
+                response.writeHead(200, {
+                    'content-type': 'application/javascript; charset=utf-8',
+                });
+                response.end(sceneRuntimeScript);
                 return;
             }
 
