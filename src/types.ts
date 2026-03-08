@@ -70,13 +70,36 @@ export interface GrassWorldCell {
 export interface SheepColorDefinition {
     name:
         | 'white'
-        | 'black'
+        | 'orange'
+        | 'magenta'
+        | 'light_blue'
+        | 'yellow'
+        | 'lime'
+        | 'pink'
+        | 'cyan'
+        | 'purple'
+        | 'blue'
+        | 'green'
+        | 'red'
         | 'gray'
         | 'light_gray'
         | 'brown'
-        | 'pink';
+        | 'black';
     hex: string;
     weight: number;
+}
+
+export interface SheepLoopSegment {
+    kind: 'walk' | 'idle' | 'graze';
+    startSec: number;
+    endSec: number;
+    progressStart: number;
+    progressEnd: number;
+}
+
+export interface SheepLoopPlan {
+    phaseOffsetSec: number;
+    segments: Array<SheepLoopSegment>;
 }
 
 export interface SheepSpawnPlan {
@@ -86,6 +109,7 @@ export interface SheepSpawnPlan {
     colorName: SheepColorDefinition['name'];
     colorHex: string;
     route: Array<GrassWorldCell>;
+    loopPlan: SheepLoopPlan;
 }
 
 export interface PanelPattern {
@@ -110,4 +134,3 @@ export interface ExportedAssetPaths {
     htmlPath?: string;
     readmeSnippetPath: string;
 }
-
