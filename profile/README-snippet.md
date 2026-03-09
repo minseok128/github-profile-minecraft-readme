@@ -9,4 +9,4 @@ Use the generated asset directly in your profile README with an unofficial notic
 
 PNG enabled: true
 GIF enabled: true
-Preview HTML enabled: false
+Preview HTML enabled: true
