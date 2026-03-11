@@ -39,6 +39,14 @@ export const DEFAULT_CONFIG: RenderConfig = {
     },
 };
 
+const parseNumericArg = (value: string | undefined, argName: string): number => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        throw new Error(`Invalid value for ${argName}: ${value ?? '(missing)'}`);
+    }
+    return parsed;
+};
+
 export const parseCliOptions = (argv: Array<string>): CliOptions => {
     const options: CliOptions = {
         sample: false,
@@ -61,11 +69,11 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 i += 1;
                 break;
             case '--year':
-                options.year = Number(next);
+                options.year = parseNumericArg(next, '--year');
                 i += 1;
                 break;
             case '--max-repos':
-                options.maxRepos = Number(next);
+                options.maxRepos = parseNumericArg(next, '--max-repos');
                 i += 1;
                 break;
             case '--output-dir':
@@ -73,15 +81,15 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 i += 1;
                 break;
             case '--weeks':
-                options.weeks = Number(next);
+                options.weeks = parseNumericArg(next, '--weeks');
                 i += 1;
                 break;
             case '--width':
-                options.width = Number(next);
+                options.width = parseNumericArg(next, '--width');
                 i += 1;
                 break;
             case '--height':
-                options.height = Number(next);
+                options.height = parseNumericArg(next, '--height');
                 i += 1;
                 break;
             case '--background':
@@ -91,11 +99,11 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 i += 1;
                 break;
             case '--duration':
-                options.gifDurationSec = Number(next);
+                options.gifDurationSec = parseNumericArg(next, '--duration');
                 i += 1;
                 break;
             case '--fps':
-                options.gifFps = Number(next);
+                options.gifFps = parseNumericArg(next, '--fps');
                 i += 1;
                 break;
             case '--sample':
