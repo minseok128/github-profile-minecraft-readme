@@ -20,7 +20,7 @@ import type {
     SceneData,
     SceneRuntimeAssets,
 } from './runtime/types.js';
-import { buildSheepPopulationPlans } from './sheep-planner.js';
+import { buildSheepPopulationPlans } from './sheep/planner.js';
 
 const escapeHtml = (text: string): string =>
     text
@@ -31,6 +31,10 @@ const escapeHtml = (text: string): string =>
         .replaceAll("'", '&#39;');
 
 const SHEEP_TARGET_HEIGHT_BLOCKS = 1.3;
+const CAL_HEIGHT_DIVISOR = 20;
+const CAL_HEIGHT_MULTIPLIER = 144;
+const CAL_HEIGHT_BASE_OFFSET = 3;
+const WORLD_HEIGHT_DIVISOR = 54;
 
 export const SERVER_SCENE_ASSET_URLS: SceneAssetUrls = {
     runtimeScriptPath: `/${SCENE_RUNTIME_BUNDLE_FILENAME}`,
@@ -48,7 +52,7 @@ const toEpochDays = (date: Date): number =>
     Math.floor(date.getTime() / (24 * 60 * 60 * 1000));
 
 const calcCalHeight = (contributionCount: number): number =>
-    Math.log10(contributionCount / 20 + 1) * 144 + 3;
+    Math.log10(contributionCount / CAL_HEIGHT_DIVISOR + 1) * CAL_HEIGHT_MULTIPLIER + CAL_HEIGHT_BASE_OFFSET;
 
 const calcWorldHeight = (
     contributionCount: number,
@@ -57,7 +61,7 @@ const calcWorldHeight = (
     if (contributionLevel === 0) {
         return 1;
     }
-    return toFixed(1 + calcCalHeight(contributionCount) / 54);
+    return toFixed(1 + calcCalHeight(contributionCount) / WORLD_HEIGHT_DIVISOR);
 };
 
 const buildCalendarMetrics = (

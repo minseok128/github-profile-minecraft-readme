@@ -25840,9 +25840,6 @@ var WebGLRenderer = class {
   }
 };
 
-// src/scene/runtime/constants.ts
-var SCENE_BOOTSTRAP_SCRIPT_ID = "scene-bootstrap";
-
 // src/scene/runtime/camera/labels.ts
 var get2dContext = (canvas) => {
   const context = canvas.getContext("2d");
@@ -26145,7 +26142,7 @@ var buildCalendarGuideMarkers = ({
   });
 };
 
-// src/scene/runtime/sheep/index.ts
+// src/scene/runtime/sheep/constants.ts
 var unit = 1 / 16;
 var sheepBodyBaseY = 15 * unit;
 var sheepHeadBaseY = 18 * unit;
@@ -26158,6 +26155,8 @@ var grazeHeadRigLowerAmount = 9 * unit;
 var grazeHeadBaseRotation = MathUtils.degToRad(-36);
 var grazeHeadChewAmplitude = MathUtils.degToRad(10);
 var grazeHeadChewDropAmount = 0.5 * unit;
+
+// src/scene/runtime/sheep/model.ts
 var createSheepMaterial = (map) => new MeshStandardMaterial({
   map,
   roughness: 0.92,
@@ -26317,6 +26316,8 @@ var createSheepInstance = (scene, colorHex, sheepBaseMaterial, sheepFurMaterial,
     shadow
   };
 };
+
+// src/scene/runtime/sheep/animation.ts
 var wrapLoopTime = (timeSec, loopDurationSec) => {
   const wrapped = timeSec % loopDurationSec;
   return wrapped < 0 ? wrapped + loopDurationSec : wrapped;
@@ -26425,6 +26426,8 @@ var getDominantSegment = (loopPlan, kind, localTimeSec, edgeSec) => loopPlan.seg
   },
   { mix: 0, segment: null }
 );
+
+// src/scene/runtime/sheep/index.ts
 var buildSheepRuntime = ({
   scene,
   sceneData,
@@ -26723,38 +26726,7 @@ var buildTerrainAndFlora = (scene, sceneData, terrainTextures) => {
   };
 };
 
-// src/scene/runtime/textures/seasonal.ts
-var get2dContext2 = (canvas) => {
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Unable to acquire 2D canvas context.");
-  }
-  return context;
-};
-var getTextureImage = (texture) => texture.image;
-var loadTexture = (textureLoader, texturePath) => new Promise((resolve, reject) => {
-  textureLoader.load(
-    texturePath,
-    (texture) => {
-      texture.colorSpace = SRGBColorSpace;
-      texture.magFilter = NearestFilter;
-      texture.minFilter = NearestFilter;
-      texture.generateMipmaps = false;
-      texture.flipY = true;
-      resolve(texture);
-    },
-    void 0,
-    reject
-  );
-});
-var createCanvasTexture = (canvas) => {
-  const texture = new CanvasTexture(canvas);
-  texture.colorSpace = SRGBColorSpace;
-  texture.magFilter = NearestFilter;
-  texture.minFilter = NearestFilter;
-  texture.generateMipmaps = false;
-  return texture;
-};
+// src/scene/runtime/textures/color-math.ts
 var clampChannel = (value) => Math.max(0, Math.min(255, Math.round(value)));
 var hexToRgb = (hex) => {
   const normalized = hex.replace("#", "");
@@ -26791,99 +26763,106 @@ var liftHex = (hex, amount) => {
     b: rgb.b * darken
   });
 };
-var isLeapYear = (year) => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-var toDayOfYear = (year, month, day) => {
-  const monthOffsets = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-  const leapOffset = isLeapYear(year) && month > 2 ? 1 : 0;
-  return monthOffsets[month - 1] + day + leapOffset;
-};
-var hashString = (value) => {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+
+// src/scene/runtime/textures/texture-utils.ts
+var get2dContext2 = (canvas) => {
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Unable to acquire 2D canvas context.");
   }
-  return (hash >>> 0) / 4294967296;
+  return context;
 };
-var getInterpolatedSeasonalAmount = (isoDate, stops) => {
-  const [yearText, monthText, dayText] = isoDate.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const dayOfYear = toDayOfYear(year, month, day);
-  const daysInYear = isLeapYear(year) ? 366 : 365;
-  const yearlyStops = stops.map((stop) => ({
-    day: toDayOfYear(year, stop.month, stop.day),
-    amount: stop.amount
-  })).sort((left, right) => left.day - right.day);
-  const extendedStops = [
-    {
-      day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
-      amount: yearlyStops[yearlyStops.length - 1].amount
+var getTextureImage = (texture) => texture.image;
+var loadTexture = (textureLoader, texturePath) => new Promise((resolve, reject) => {
+  textureLoader.load(
+    texturePath,
+    (texture) => {
+      texture.colorSpace = SRGBColorSpace;
+      texture.magFilter = NearestFilter;
+      texture.minFilter = NearestFilter;
+      texture.generateMipmaps = false;
+      texture.flipY = true;
+      resolve(texture);
     },
-    ...yearlyStops,
-    {
-      day: yearlyStops[0].day + daysInYear,
-      amount: yearlyStops[0].amount
-    }
-  ];
-  let leftStop = extendedStops[0];
-  let rightStop = extendedStops[1];
-  for (let index = 0; index < extendedStops.length - 1; index += 1) {
-    const left = extendedStops[index];
-    const right = extendedStops[index + 1];
-    if (dayOfYear >= left.day && dayOfYear < right.day) {
-      leftStop = left;
-      rightStop = right;
-      break;
-    }
-  }
-  const range = Math.max(1, rightStop.day - leftStop.day);
-  const t = Math.max(0, Math.min(1, (dayOfYear - leftStop.day) / range));
-  return leftStop.amount + (rightStop.amount - leftStop.amount) * t;
-};
-var getSeasonalGrassTint = (sceneData, isoDate, contributionLevel) => {
-  const [yearText, monthText, dayText] = isoDate.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const dayOfYear = toDayOfYear(year, month, day);
-  const daysInYear = isLeapYear(year) ? 366 : 365;
-  const yearlyStops = sceneData.seasonalGrassStops.map((stop) => ({
-    day: toDayOfYear(year, stop.month, stop.day),
-    color: stop.color
-  })).sort((left, right) => left.day - right.day);
-  const extendedStops = [
-    {
-      day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
-      color: yearlyStops[yearlyStops.length - 1].color
-    },
-    ...yearlyStops,
-    {
-      day: yearlyStops[0].day + daysInYear,
-      color: yearlyStops[0].color
-    }
-  ];
-  let leftStop = extendedStops[0];
-  let rightStop = extendedStops[1];
-  for (let index = 0; index < extendedStops.length - 1; index += 1) {
-    const left = extendedStops[index];
-    const right = extendedStops[index + 1];
-    if (dayOfYear >= left.day && dayOfYear < right.day) {
-      leftStop = left;
-      rightStop = right;
-      break;
-    }
-  }
-  const range = Math.max(1, rightStop.day - leftStop.day);
-  const seasonalColor = mixHexColors(
-    leftStop.color,
-    rightStop.color,
-    (dayOfYear - leftStop.day) / range
+    void 0,
+    reject
   );
-  const contributionLift = [0, 0.015, 0.035, 0.06, 0.09][contributionLevel] ?? 0;
-  return liftHex(seasonalColor, contributionLift);
+});
+var createCanvasTexture = (canvas) => {
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
+  texture.generateMipmaps = false;
+  return texture;
 };
+var loadSceneTextures = async (assets) => {
+  const textureLoader = new TextureLoader();
+  const [
+    sheepBaseTexture,
+    sheepFurTexture,
+    grassTopTexture,
+    grassSideTexture,
+    grassSideOverlayTexture,
+    grassSnowTexture,
+    pinkPetalsTexture,
+    leafLitterTexture,
+    poppyTexture,
+    dandelionTexture,
+    cornflowerTexture,
+    blueOrchidTexture,
+    azureBluetTexture,
+    pinkTulipTexture,
+    whiteTulipTexture,
+    snowTexture,
+    dirtTexture,
+    waterTopTexture,
+    waterSideTexture
+  ] = await Promise.all([
+    loadTexture(textureLoader, assets.sheepTexturePath),
+    loadTexture(textureLoader, assets.sheepFurTexturePath),
+    loadTexture(textureLoader, assets.grassTopTexturePath),
+    loadTexture(textureLoader, assets.grassSideTexturePath),
+    loadTexture(textureLoader, assets.grassSideOverlayTexturePath),
+    loadTexture(textureLoader, assets.grassSnowTexturePath),
+    loadTexture(textureLoader, assets.pinkPetalsTexturePath),
+    loadTexture(textureLoader, assets.leafLitterTexturePath),
+    loadTexture(textureLoader, assets.poppyTexturePath),
+    loadTexture(textureLoader, assets.dandelionTexturePath),
+    loadTexture(textureLoader, assets.cornflowerTexturePath),
+    loadTexture(textureLoader, assets.blueOrchidTexturePath),
+    loadTexture(textureLoader, assets.azureBluetTexturePath),
+    loadTexture(textureLoader, assets.pinkTulipTexturePath),
+    loadTexture(textureLoader, assets.whiteTulipTexturePath),
+    loadTexture(textureLoader, assets.snowTexturePath),
+    loadTexture(textureLoader, assets.dirtTexturePath),
+    loadTexture(textureLoader, assets.waterTopTexturePath),
+    loadTexture(textureLoader, assets.waterSideTexturePath)
+  ]);
+  return {
+    sheepBaseTexture,
+    sheepFurTexture,
+    grassTopTexture,
+    grassSideTexture,
+    grassSideOverlayTexture,
+    grassSnowTexture,
+    pinkPetalsTexture,
+    leafLitterTexture,
+    poppyTexture,
+    dandelionTexture,
+    cornflowerTexture,
+    blueOrchidTexture,
+    azureBluetTexture,
+    pinkTulipTexture,
+    whiteTulipTexture,
+    snowTexture,
+    dirtTexture,
+    waterTopTexture,
+    waterSideTexture
+  };
+};
+
+// src/scene/runtime/textures/texture-builders.ts
 var createTintedTopTexture = (baseTexture, tintHex) => {
   const image = getTextureImage(baseTexture);
   const canvas = document.createElement("canvas");
@@ -27020,70 +26999,100 @@ var createPartialOverlayTopTexture = (baseTexture, overlayTexture, tintHex, sour
   );
   return createCanvasTexture(canvas);
 };
-var loadSceneTextures = async (assets) => {
-  const textureLoader = new TextureLoader();
-  const [
-    sheepBaseTexture,
-    sheepFurTexture,
-    grassTopTexture,
-    grassSideTexture,
-    grassSideOverlayTexture,
-    grassSnowTexture,
-    pinkPetalsTexture,
-    leafLitterTexture,
-    poppyTexture,
-    dandelionTexture,
-    cornflowerTexture,
-    blueOrchidTexture,
-    azureBluetTexture,
-    pinkTulipTexture,
-    whiteTulipTexture,
-    snowTexture,
-    dirtTexture,
-    waterTopTexture,
-    waterSideTexture
-  ] = await Promise.all([
-    loadTexture(textureLoader, assets.sheepTexturePath),
-    loadTexture(textureLoader, assets.sheepFurTexturePath),
-    loadTexture(textureLoader, assets.grassTopTexturePath),
-    loadTexture(textureLoader, assets.grassSideTexturePath),
-    loadTexture(textureLoader, assets.grassSideOverlayTexturePath),
-    loadTexture(textureLoader, assets.grassSnowTexturePath),
-    loadTexture(textureLoader, assets.pinkPetalsTexturePath),
-    loadTexture(textureLoader, assets.leafLitterTexturePath),
-    loadTexture(textureLoader, assets.poppyTexturePath),
-    loadTexture(textureLoader, assets.dandelionTexturePath),
-    loadTexture(textureLoader, assets.cornflowerTexturePath),
-    loadTexture(textureLoader, assets.blueOrchidTexturePath),
-    loadTexture(textureLoader, assets.azureBluetTexturePath),
-    loadTexture(textureLoader, assets.pinkTulipTexturePath),
-    loadTexture(textureLoader, assets.whiteTulipTexturePath),
-    loadTexture(textureLoader, assets.snowTexturePath),
-    loadTexture(textureLoader, assets.dirtTexturePath),
-    loadTexture(textureLoader, assets.waterTopTexturePath),
-    loadTexture(textureLoader, assets.waterSideTexturePath)
-  ]);
-  return {
-    sheepBaseTexture,
-    sheepFurTexture,
-    grassTopTexture,
-    grassSideTexture,
-    grassSideOverlayTexture,
-    grassSnowTexture,
-    pinkPetalsTexture,
-    leafLitterTexture,
-    poppyTexture,
-    dandelionTexture,
-    cornflowerTexture,
-    blueOrchidTexture,
-    azureBluetTexture,
-    pinkTulipTexture,
-    whiteTulipTexture,
-    snowTexture,
-    dirtTexture,
-    waterTopTexture,
-    waterSideTexture
-  };
+
+// src/scene/runtime/textures/seasonal.ts
+var hashString = (value) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
+};
+var isLeapYear = (year) => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+var toDayOfYear = (year, month, day) => {
+  const monthOffsets = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  const leapOffset = isLeapYear(year) && month > 2 ? 1 : 0;
+  return monthOffsets[month - 1] + day + leapOffset;
+};
+var getInterpolatedSeasonalAmount = (isoDate, stops) => {
+  const [yearText, monthText, dayText] = isoDate.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const dayOfYear = toDayOfYear(year, month, day);
+  const daysInYear = isLeapYear(year) ? 366 : 365;
+  const yearlyStops = stops.map((stop) => ({
+    day: toDayOfYear(year, stop.month, stop.day),
+    amount: stop.amount
+  })).sort((left, right) => left.day - right.day);
+  const extendedStops = [
+    {
+      day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
+      amount: yearlyStops[yearlyStops.length - 1].amount
+    },
+    ...yearlyStops,
+    {
+      day: yearlyStops[0].day + daysInYear,
+      amount: yearlyStops[0].amount
+    }
+  ];
+  let leftStop = extendedStops[0];
+  let rightStop = extendedStops[1];
+  for (let index = 0; index < extendedStops.length - 1; index += 1) {
+    const left = extendedStops[index];
+    const right = extendedStops[index + 1];
+    if (dayOfYear >= left.day && dayOfYear < right.day) {
+      leftStop = left;
+      rightStop = right;
+      break;
+    }
+  }
+  const range = Math.max(1, rightStop.day - leftStop.day);
+  const t = Math.max(0, Math.min(1, (dayOfYear - leftStop.day) / range));
+  return leftStop.amount + (rightStop.amount - leftStop.amount) * t;
+};
+var getSeasonalGrassTint = (sceneData, isoDate, contributionLevel) => {
+  const [yearText, monthText, dayText] = isoDate.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const dayOfYear = toDayOfYear(year, month, day);
+  const daysInYear = isLeapYear(year) ? 366 : 365;
+  const yearlyStops = sceneData.seasonalGrassStops.map((stop) => ({
+    day: toDayOfYear(year, stop.month, stop.day),
+    color: stop.color
+  })).sort((left, right) => left.day - right.day);
+  const extendedStops = [
+    {
+      day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
+      color: yearlyStops[yearlyStops.length - 1].color
+    },
+    ...yearlyStops,
+    {
+      day: yearlyStops[0].day + daysInYear,
+      color: yearlyStops[0].color
+    }
+  ];
+  let leftStop = extendedStops[0];
+  let rightStop = extendedStops[1];
+  for (let index = 0; index < extendedStops.length - 1; index += 1) {
+    const left = extendedStops[index];
+    const right = extendedStops[index + 1];
+    if (dayOfYear >= left.day && dayOfYear < right.day) {
+      leftStop = left;
+      rightStop = right;
+      break;
+    }
+  }
+  const range = Math.max(1, rightStop.day - leftStop.day);
+  const seasonalColor = mixHexColors(
+    leftStop.color,
+    rightStop.color,
+    (dayOfYear - leftStop.day) / range
+  );
+  const contributionLift = [0, 0.015, 0.035, 0.06, 0.09][contributionLevel] ?? 0;
+  return liftHex(seasonalColor, contributionLift);
 };
 var createTerrainTextureContext = (sceneData, textures) => {
   const springFlowerTextures = [
@@ -27291,7 +27300,11 @@ var createTerrainTextureContext = (sceneData, textures) => {
   };
 };
 
-// src/scene/runtime/main/bootstrap.ts
+// src/scene/runtime/constants.ts
+var SCENE_BOOTSTRAP_SCRIPT_ID = "scene-bootstrap";
+
+// src/scene/runtime/main/scene-setup.ts
+var SHADOW_MAP_SIZE = 2048;
 var parseBootstrapPayload = () => {
   const payloadElement = document.getElementById(SCENE_BOOTSTRAP_SCRIPT_ID);
   if (!(payloadElement instanceof HTMLScriptElement)) {
@@ -27306,6 +27319,55 @@ var getMountElement = (mountElementId) => {
   }
   return mountElement;
 };
+var createRenderer = (mountElement, isTransparent) => {
+  const renderer = new WebGLRenderer({
+    antialias: true,
+    alpha: isTransparent,
+    preserveDrawingBuffer: true
+  });
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (isTransparent) {
+    renderer.setClearColor(0, 0);
+  } else {
+    renderer.setClearColor("#eef9ff", 0);
+  }
+  mountElement.appendChild(renderer.domElement);
+  return renderer;
+};
+var createLighting = (scene) => {
+  scene.add(new HemisphereLight(16777215, 8084029, 1.08));
+  const sun = new DirectionalLight(16774872, 1.34);
+  sun.position.set(24, 34, 18);
+  sun.castShadow = true;
+  sun.shadow.camera.left = -32;
+  sun.shadow.camera.right = 32;
+  sun.shadow.camera.top = 32;
+  sun.shadow.camera.bottom = -32;
+  sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+  scene.add(sun);
+  return sun;
+};
+var createGround = (scene, isTransparent) => {
+  const ground = new Mesh(
+    new PlaneGeometry(1, 1),
+    new MeshLambertMaterial({
+      color: "#d4efff",
+      transparent: true,
+      opacity: isTransparent ? 0 : 0.22
+    })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  ground.visible = !isTransparent;
+  scene.add(ground);
+  return ground;
+};
 var buildSceneDebugState = (camera, blockCount, floraCount, sheepCount) => ({
   blockCount,
   floraCount,
@@ -27318,57 +27380,23 @@ var buildSceneDebugState = (camera, blockCount, floraCount, sheepCount) => ({
     position: [camera.position.x, camera.position.y, camera.position.z]
   }
 });
+
+// src/scene/runtime/main/bootstrap.ts
 var start = async () => {
   const payload = parseBootstrapPayload();
   const runtimeWindow = window;
+  const isTransparent = payload.sceneData.background === "transparent";
   const mountElement = getMountElement(payload.mountElementId);
   const scene = new Scene();
-  if (payload.sceneData.background !== "transparent") {
+  if (!isTransparent) {
     scene.fog = new Fog("#d8f0ff", 20, 74);
   }
-  const renderer = new WebGLRenderer({
-    antialias: true,
-    alpha: payload.sceneData.background === "transparent",
-    preserveDrawingBuffer: true
-  });
-  renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  if (payload.sceneData.background === "transparent") {
-    renderer.setClearColor(0, 0);
-  } else {
-    renderer.setClearColor("#eef9ff", 0);
-  }
-  mountElement.appendChild(renderer.domElement);
+  const renderer = createRenderer(mountElement, isTransparent);
   const camera = new OrthographicCamera(-20, 20, 20, -20, 0.1, 240);
   const isoDirection = new Vector3(1, 1, 1).normalize();
-  const cameraFitPadding = payload.sceneData.background === "transparent" ? 1.005 : 1.04;
-  scene.add(new HemisphereLight(16777215, 8084029, 1.08));
-  const sun = new DirectionalLight(16774872, 1.34);
-  sun.position.set(24, 34, 18);
-  sun.castShadow = true;
-  sun.shadow.camera.left = -32;
-  sun.shadow.camera.right = 32;
-  sun.shadow.camera.top = 32;
-  sun.shadow.camera.bottom = -32;
-  sun.shadow.mapSize.set(2048, 2048);
-  scene.add(sun);
-  const ground = new Mesh(
-    new PlaneGeometry(1, 1),
-    new MeshLambertMaterial({
-      color: "#d4efff",
-      transparent: true,
-      opacity: payload.sceneData.background === "transparent" ? 0 : 0.22
-    })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  ground.visible = payload.sceneData.background !== "transparent";
-  scene.add(ground);
+  const cameraFitPadding = isTransparent ? 1.005 : 1.04;
+  createLighting(scene);
+  const ground = createGround(scene, isTransparent);
   const textures = await loadSceneTextures(payload.assets);
   const terrainTextures = createTerrainTextureContext(payload.sceneData, textures);
   const terrain = buildTerrainAndFlora(scene, payload.sceneData, terrainTextures);

@@ -225,7 +225,7 @@ export const exportProfileAssets = async (
         if (config.createPng) {
             const pngPath = path.join(outputDir, `${config.baseName}.png`);
             await page.evaluate((timeSec) => {
-                (window as any).__setSceneTime(timeSec);
+                (window as unknown as { __setSceneTime: (t: number) => void }).__setSceneTime(timeSec);
             }, 0);
             await page.screenshot({
                 path: pngPath,
@@ -242,7 +242,7 @@ export const exportProfileAssets = async (
                 );
                 const timeSec = frameIndex / fps;
                 await page.evaluate((time) => {
-                    (window as any).__setSceneTime(time);
+                    (window as unknown as { __setSceneTime: (t: number) => void }).__setSceneTime(time);
                 }, timeSec);
                 await page.screenshot({
                     path: framePath,
