@@ -19,6 +19,7 @@ export interface CliOptions {
     height?: number;
     gifDurationSec?: number;
     gifFps?: number;
+    help: boolean;
 }
 
 export const DEFAULT_CONFIG: RenderConfig = {
@@ -39,9 +40,18 @@ export const DEFAULT_CONFIG: RenderConfig = {
     },
 };
 
+const parseNumericArg = (value: string | undefined, argName: string): number => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        throw new Error(`Invalid value for ${argName}: ${value ?? '(missing)'}`);
+    }
+    return parsed;
+};
+
 export const parseCliOptions = (argv: Array<string>): CliOptions => {
     const options: CliOptions = {
         sample: false,
+        help: false,
     };
 
     for (let i = 0; i < argv.length; i += 1) {
@@ -61,11 +71,11 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 i += 1;
                 break;
             case '--year':
-                options.year = Number(next);
+                options.year = parseNumericArg(next, '--year');
                 i += 1;
                 break;
             case '--max-repos':
-                options.maxRepos = Number(next);
+                options.maxRepos = parseNumericArg(next, '--max-repos');
                 i += 1;
                 break;
             case '--output-dir':
@@ -73,15 +83,15 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 i += 1;
                 break;
             case '--weeks':
-                options.weeks = Number(next);
+                options.weeks = parseNumericArg(next, '--weeks');
                 i += 1;
                 break;
             case '--width':
-                options.width = Number(next);
+                options.width = parseNumericArg(next, '--width');
                 i += 1;
                 break;
             case '--height':
-                options.height = Number(next);
+                options.height = parseNumericArg(next, '--height');
                 i += 1;
                 break;
             case '--background':
@@ -91,11 +101,11 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
                 i += 1;
                 break;
             case '--duration':
-                options.gifDurationSec = Number(next);
+                options.gifDurationSec = parseNumericArg(next, '--duration');
                 i += 1;
                 break;
             case '--fps':
-                options.gifFps = Number(next);
+                options.gifFps = parseNumericArg(next, '--fps');
                 i += 1;
                 break;
             case '--sample':
@@ -110,12 +120,37 @@ export const parseCliOptions = (argv: Array<string>): CliOptions => {
             case '--no-png':
                 options.createPng = false;
                 break;
+            case '--help':
+                options.help = true;
+                break;
             default:
                 break;
         }
     }
 
     return options;
+};
+
+const validateRenderConfig = (config: RenderConfig): RenderConfig => {
+    if (config.weeks <= 0 || !Number.isFinite(config.weeks)) {
+        throw new Error(`Invalid config: weeks must be a positive number, got ${config.weeks}`);
+    }
+    if (config.width <= 0 || !Number.isFinite(config.width)) {
+        throw new Error(`Invalid config: width must be a positive number, got ${config.width}`);
+    }
+    if (config.height <= 0 || !Number.isFinite(config.height)) {
+        throw new Error(`Invalid config: height must be a positive number, got ${config.height}`);
+    }
+    if (config.gif.fps <= 0 || !Number.isFinite(config.gif.fps)) {
+        throw new Error(`Invalid config: gif.fps must be a positive number, got ${config.gif.fps}`);
+    }
+    if (config.gif.durationSec <= 0 || !Number.isFinite(config.gif.durationSec)) {
+        throw new Error(`Invalid config: gif.durationSec must be a positive number, got ${config.gif.durationSec}`);
+    }
+    if (config.background !== 'sky' && config.background !== 'transparent') {
+        throw new Error(`Invalid config: background must be 'sky' or 'transparent', got '${config.background}'`);
+    }
+    return config;
 };
 
 export const loadRenderConfig = async (
@@ -127,7 +162,7 @@ export const loadRenderConfig = async (
         : path.resolve(projectRoot, 'config/default.json');
     const fileConfig = await readJsonFile<Partial<RenderConfig>>(configPath);
 
-    return {
+    return validateRenderConfig({
         ...DEFAULT_CONFIG,
         ...fileConfig,
         weeks: options.weeks ?? fileConfig.weeks ?? DEFAULT_CONFIG.weeks,
@@ -161,5 +196,5 @@ export const loadRenderConfig = async (
                 fileConfig.gif?.fps ??
                 DEFAULT_CONFIG.gif.fps,
         },
-    };
+    });
 };
