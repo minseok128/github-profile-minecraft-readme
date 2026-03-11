@@ -17,12 +17,23 @@ import { ensureDir, writeTextFile } from '../utils.js';
 import { buildSceneRuntimeBundle } from './scene-runtime-bundle.js';
 import { startStaticSceneServer } from './static-server.js';
 
-const runCommand = async (command: string, args: Array<string>): Promise<void> =>
+const runCommand = async (
+    command: string,
+    args: Array<string>,
+    timeoutMs = 120_000,
+): Promise<void> =>
     new Promise<void>((resolve, reject) => {
         const child = spawn(command, args, {
             stdio: 'inherit',
+            signal: AbortSignal.timeout(timeoutMs),
         });
-        child.on('error', reject);
+        child.on('error', (error) => {
+            if (error.name === 'AbortError') {
+                reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+                return;
+            }
+            reject(error);
+        });
         child.on('exit', (code) => {
             if (code === 0) {
                 resolve();
@@ -214,7 +225,7 @@ export const exportProfileAssets = async (
         if (config.createPng) {
             const pngPath = path.join(outputDir, `${config.baseName}.png`);
             await page.evaluate((timeSec) => {
-                (window as any).__setSceneTime(timeSec);
+                (window as unknown as { __setSceneTime: (t: number) => void }).__setSceneTime(timeSec);
             }, 0);
             await page.screenshot({
                 path: pngPath,
@@ -231,7 +242,7 @@ export const exportProfileAssets = async (
                 );
                 const timeSec = frameIndex / fps;
                 await page.evaluate((time) => {
-                    (window as any).__setSceneTime(time);
+                    (window as unknown as { __setSceneTime: (t: number) => void }).__setSceneTime(time);
                 }, timeSec);
                 await page.screenshot({
                     path: framePath,

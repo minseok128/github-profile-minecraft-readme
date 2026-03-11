@@ -8,3 +8,5 @@ dist/
 coverage/
 output/
 .env.local
+profile/assets/
+**/.omc

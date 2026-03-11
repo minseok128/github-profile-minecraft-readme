@@ -7,7 +7,6 @@ import {
     KOREAN_SEASONAL_GRASS_STOPS,
     KOREAN_SNOW_COVER_STOPS,
     KOREAN_SUMMER_FLOWER_COVER_STOPS,
-    KOREAN_SUMMER_WATER_COVER_STOPS,
 } from './minecraft-grass-theme.js';
 import {
     SCENE_BOOTSTRAP_SCRIPT_ID,
@@ -20,9 +19,21 @@ import type {
     SceneData,
     SceneRuntimeAssets,
 } from './runtime/types.js';
-import { buildSheepPopulationPlans } from './sheep-planner.js';
+import { buildSheepPopulationPlans } from './sheep/planner.js';
+
+const escapeHtml = (text: string): string =>
+    text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
 
 const SHEEP_TARGET_HEIGHT_BLOCKS = 1.3;
+const CAL_HEIGHT_DIVISOR = 20;
+const CAL_HEIGHT_MULTIPLIER = 144;
+const CAL_HEIGHT_BASE_OFFSET = 3;
+const WORLD_HEIGHT_DIVISOR = 54;
 
 export const SERVER_SCENE_ASSET_URLS: SceneAssetUrls = {
     runtimeScriptPath: `/${SCENE_RUNTIME_BUNDLE_FILENAME}`,
@@ -40,7 +51,7 @@ const toEpochDays = (date: Date): number =>
     Math.floor(date.getTime() / (24 * 60 * 60 * 1000));
 
 const calcCalHeight = (contributionCount: number): number =>
-    Math.log10(contributionCount / 20 + 1) * 144 + 3;
+    Math.log10(contributionCount / CAL_HEIGHT_DIVISOR + 1) * CAL_HEIGHT_MULTIPLIER + CAL_HEIGHT_BASE_OFFSET;
 
 const calcWorldHeight = (
     contributionCount: number,
@@ -49,7 +60,7 @@ const calcWorldHeight = (
     if (contributionLevel === 0) {
         return 1;
     }
-    return toFixed(1 + calcCalHeight(contributionCount) / 54);
+    return toFixed(1 + calcCalHeight(contributionCount) / WORLD_HEIGHT_DIVISOR);
 };
 
 const buildCalendarMetrics = (
@@ -57,6 +68,9 @@ const buildCalendarMetrics = (
     weeks: number,
 ): Array<CalendarMetric> => {
     const visibleCalendar = trimLastWeeks(userSnapshot.calendar, weeks);
+    if (visibleCalendar.length === 0) {
+        throw new Error('No contribution calendar data available. The GitHub API returned an empty calendar.');
+    }
     const firstDate = new Date(visibleCalendar[0].date);
     const sundayOfFirstWeek = toEpochDays(firstDate) - firstDate.getUTCDay();
 
@@ -145,7 +159,7 @@ const createHudMarkup = (
 
     return `
   <div class="hud">
-    <div class="hud-title">${userSnapshot.username}'s Minecraft Contributions</div>
+    <div class="hud-title">${escapeHtml(userSnapshot.username)}'s Minecraft Contributions</div>
     <div class="hud-row"><strong>${formatThousands(
         userSnapshot.totalContributions,
     )}</strong> contributions</div>
@@ -266,6 +280,9 @@ const buildSceneData = (
     config: RenderConfig,
 ): SceneData => {
     const calendarMetrics = buildCalendarMetrics(userSnapshot, config.weeks);
+    if (calendarMetrics.length === 0) {
+        throw new Error('No calendar metrics to render.');
+    }
     const monthGuideEntries = buildMonthGuideEntries(calendarMetrics);
     const period = `${calendarMetrics[0].date} / ${
         calendarMetrics[calendarMetrics.length - 1].date
@@ -290,7 +307,6 @@ const buildSceneData = (
         seasonalGrassStops: KOREAN_SEASONAL_GRASS_STOPS,
         snowCoverStops: KOREAN_SNOW_COVER_STOPS,
         summerFlowerCoverStops: KOREAN_SUMMER_FLOWER_COVER_STOPS,
-        summerWaterCoverStops: KOREAN_SUMMER_WATER_COVER_STOPS,
     };
 };
 

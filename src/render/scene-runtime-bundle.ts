@@ -32,7 +32,10 @@ export const buildSceneRuntimeBundle = async (
             }
 
             return bundledFile.text;
-        })();
+        })().catch((error) => {
+            cachedSceneRuntimeBundle = undefined;
+            throw error;
+        });
     }
 
     return cachedSceneRuntimeBundle;

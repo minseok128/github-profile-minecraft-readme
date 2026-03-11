@@ -1,6 +1,11 @@
 import type { LanguageContribution, UserSnapshot } from './types.js';
 import { hashString, mulberry32, toIsoDate } from './utils.js';
 
+/**
+ * Maps raw contribution count to GitHub's 0-4 contribution level scale.
+ * @param contributionCount - The number of contributions
+ * @returns A level from 0 (no contributions) to 4 (high activity)
+ */
 const toContributionLevel = (contributionCount: number): number => {
     if (contributionCount === 0) {
         return 0;
@@ -19,6 +24,12 @@ const toContributionLevel = (contributionCount: number): number => {
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
+/**
+ * Generates deterministic sample language contribution data using seeded RNG.
+ * Uses the username to create a reproducible sequence via FNV-1a hash and Mulberry32 PRNG.
+ * @param username - The GitHub username used as the seed source
+ * @returns An array of language contributions with seeded randomized counts
+ */
 const buildLanguageSamples = (username: string): Array<LanguageContribution> => {
     const rng = mulberry32(hashString(`${username}:languages`));
     const seeds = [
@@ -35,6 +46,20 @@ const buildLanguageSamples = (username: string): Array<LanguageContribution> => 
     }));
 };
 
+/**
+ * Creates a deterministic sample UserSnapshot for preview and testing purposes.
+ * Uses FNV-1a hashing and Mulberry32 PRNG seeded by username for reproducible output.
+ *
+ * Contribution simulation strategy:
+ * - Seasonal wave: Sinusoidal oscillation creating natural peaks/valleys
+ * - Sprint phases: Two intense work periods (around days 105 and 305) with high contribution spikes
+ * - Rest windows: Periodic low-activity zones reducing contribution likelihood
+ * - Burst events: Random high-contribution days for unpredictable peaks
+ * - Off days: Probabilistically reduced activity with weekend multipliers
+ *
+ * @param username - GitHub username to seed the deterministic generation
+ * @returns A realistic sample UserSnapshot with 365 days of contribution data and language stats
+ */
 export const createSampleProfile = (username: string): UserSnapshot => {
     const today = new Date();
     const start = new Date(
