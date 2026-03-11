@@ -31,7 +31,7 @@ const escapeHtml = (text: string): string =>
         .replaceAll("'", '&#39;');
 
 const SHEEP_TARGET_HEIGHT_BLOCKS = 1.3;
-const CAT_TARGET_HEIGHT_BLOCKS = 1.1;
+const CAT_TARGET_HEIGHT_BLOCKS = 1.0;
 const CAL_HEIGHT_DIVISOR = 20;
 const CAL_HEIGHT_MULTIPLIER = 144;
 const CAL_HEIGHT_BASE_OFFSET = 3;
