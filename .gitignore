@@ -8,3 +8,4 @@ dist/
 coverage/
 output/
 .env.local
+profile/assets/
