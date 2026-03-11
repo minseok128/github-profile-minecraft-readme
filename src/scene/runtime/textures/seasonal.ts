@@ -3,106 +3,32 @@ import type { CalendarMetric } from '../../../types.js';
 import type {
     LoadedSceneTextures,
     SceneData,
-    SceneRuntimeAssets,
     SeasonalAmountStop,
 } from '../types.js';
+import { liftHex, mixHexColors } from './color-math.js';
+import {
+    createOverlayTopTexture,
+    createPartialOverlayTopTexture,
+    createStackedSideTexture,
+    createTintedSideTexture,
+    createTintedTopTexture,
+} from './texture-builders.js';
 
-interface Rect {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
-
-type CanvasTextureImage = CanvasImageSource & {
-    width: number;
-    height: number;
-};
-
-const get2dContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D => {
-    const context = canvas.getContext('2d');
-    if (!context) {
-        throw new Error('Unable to acquire 2D canvas context.');
+/**
+ * FNV-1a hash returning a normalized float in [0, 1).
+ *
+ * A similar FNV-1a implementation exists in `src/utils.ts` that returns
+ * a raw unsigned 32-bit integer instead. The two are intentionally separate:
+ * this module runs in the browser bundle (esbuild), while `src/utils.ts`
+ * imports Node-only modules (`node:fs/promises`, `node:path`).
+ */
+export const hashString = (value: string): number => {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
     }
-    return context;
-};
-
-const getTextureImage = (texture: THREE.Texture): CanvasTextureImage =>
-    texture.image as CanvasTextureImage;
-
-const loadTexture = (
-    textureLoader: THREE.TextureLoader,
-    texturePath: string,
-): Promise<THREE.Texture> =>
-    new Promise<THREE.Texture>((resolve, reject) => {
-        textureLoader.load(
-            texturePath,
-            (texture: THREE.Texture) => {
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.magFilter = THREE.NearestFilter;
-                texture.minFilter = THREE.NearestFilter;
-                texture.generateMipmaps = false;
-                texture.flipY = true;
-                resolve(texture);
-            },
-            undefined,
-            reject,
-        );
-    });
-
-const createCanvasTexture = (canvas: HTMLCanvasElement): THREE.CanvasTexture => {
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.generateMipmaps = false;
-    return texture;
-};
-
-const clampChannel = (value: number): number =>
-    Math.max(0, Math.min(255, Math.round(value)));
-
-const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
-    const normalized = hex.replace('#', '');
-    return {
-        r: Number.parseInt(normalized.slice(0, 2), 16),
-        g: Number.parseInt(normalized.slice(2, 4), 16),
-        b: Number.parseInt(normalized.slice(4, 6), 16),
-    };
-};
-
-const rgbToHex = (rgb: { r: number; g: number; b: number }): string =>
-    `#${[rgb.r, rgb.g, rgb.b]
-        .map((channel) => clampChannel(channel).toString(16).padStart(2, '0'))
-        .join('')}`;
-
-const mixHexColors = (startHex: string, endHex: string, t: number): string => {
-    const clampedT = Math.max(0, Math.min(1, t));
-    const start = hexToRgb(startHex);
-    const end = hexToRgb(endHex);
-    return rgbToHex({
-        r: start.r + (end.r - start.r) * clampedT,
-        g: start.g + (end.g - start.g) * clampedT,
-        b: start.b + (end.b - start.b) * clampedT,
-    });
-};
-
-const liftHex = (hex: string, amount: number): string => {
-    const rgb = hexToRgb(hex);
-    if (amount >= 0) {
-        return rgbToHex({
-            r: rgb.r + (255 - rgb.r) * amount,
-            g: rgb.g + (255 - rgb.g) * amount,
-            b: rgb.b + (255 - rgb.b) * amount,
-        });
-    }
-
-    const darken = 1 + amount;
-    return rgbToHex({
-        r: rgb.r * darken,
-        g: rgb.g * darken,
-        b: rgb.b * darken,
-    });
+    return (hash >>> 0) / 4294967296;
 };
 
 const isLeapYear = (year: number): boolean =>
@@ -112,15 +38,6 @@ const toDayOfYear = (year: number, month: number, day: number): number => {
     const monthOffsets = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
     const leapOffset = isLeapYear(year) && month > 2 ? 1 : 0;
     return monthOffsets[month - 1] + day + leapOffset;
-};
-
-export const hashString = (value: string): number => {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) / 4294967296;
 };
 
 const getInterpolatedSeasonalAmount = (
@@ -219,178 +136,6 @@ const getSeasonalGrassTint = (
     return liftHex(seasonalColor, contributionLift);
 };
 
-const createTintedTopTexture = (
-    baseTexture: THREE.Texture,
-    tintHex: string,
-): THREE.CanvasTexture => {
-    const image = getTextureImage(baseTexture);
-    const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const context = get2dContext(canvas);
-    context.drawImage(image, 0, 0);
-    context.globalCompositeOperation = 'multiply';
-    context.fillStyle = tintHex;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.globalCompositeOperation = 'screen';
-    context.globalAlpha = 0.06;
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.globalAlpha = 1;
-    context.globalCompositeOperation = 'source-over';
-    return createCanvasTexture(canvas);
-};
-
-const createTintedSideTexture = (
-    baseTexture: THREE.Texture,
-    overlayTexture: THREE.Texture,
-    tintHex: string,
-): THREE.CanvasTexture => {
-    const baseImage = getTextureImage(baseTexture);
-    const overlayImage = getTextureImage(overlayTexture);
-    const canvas = document.createElement('canvas');
-    canvas.width = baseImage.width;
-    canvas.height = baseImage.height;
-    const context = get2dContext(canvas);
-    context.drawImage(baseImage, 0, 0);
-
-    const overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = overlayImage.width;
-    overlayCanvas.height = overlayImage.height;
-    const overlayContext = get2dContext(overlayCanvas);
-    overlayContext.drawImage(overlayImage, 0, 0);
-    overlayContext.globalCompositeOperation = 'source-atop';
-    overlayContext.fillStyle = tintHex;
-    overlayContext.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    overlayContext.globalCompositeOperation = 'source-over';
-
-    context.drawImage(overlayCanvas, 0, 0);
-    return createCanvasTexture(canvas);
-};
-
-const createOverlayTopTexture = (
-    baseTexture: THREE.Texture,
-    overlayTexture: THREE.Texture,
-    tintHex: string | null = null,
-): THREE.CanvasTexture => {
-    const baseImage = getTextureImage(baseTexture);
-    const overlayImage = getTextureImage(overlayTexture);
-    const canvas = document.createElement('canvas');
-    canvas.width = baseImage.width;
-    canvas.height = baseImage.height;
-    const context = get2dContext(canvas);
-    context.drawImage(baseImage, 0, 0);
-
-    if (tintHex) {
-        const overlayCanvas = document.createElement('canvas');
-        overlayCanvas.width = overlayImage.width;
-        overlayCanvas.height = overlayImage.height;
-        const overlayContext = get2dContext(overlayCanvas);
-        overlayContext.drawImage(overlayImage, 0, 0);
-        overlayContext.globalCompositeOperation = 'source-atop';
-        overlayContext.fillStyle = tintHex;
-        overlayContext.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        overlayContext.globalCompositeOperation = 'source-over';
-        context.drawImage(overlayCanvas, 0, 0);
-    } else {
-        context.drawImage(overlayImage, 0, 0);
-    }
-
-    return createCanvasTexture(canvas);
-};
-
-const createStackedSideTexture = (
-    topTileTexture: THREE.Texture,
-    fillTileTexture: THREE.Texture,
-    totalHeightBlocks: number,
-): THREE.CanvasTexture => {
-    const topImage = getTextureImage(topTileTexture);
-    const fillImage = getTextureImage(fillTileTexture);
-    const tileWidth = topImage.width;
-    const tileHeight = topImage.height;
-    const totalPixelHeight = Math.max(
-        tileHeight,
-        Math.round(tileHeight * totalHeightBlocks),
-    );
-    const canvas = document.createElement('canvas');
-    canvas.width = tileWidth;
-    canvas.height = totalPixelHeight;
-    const context = get2dContext(canvas);
-    context.imageSmoothingEnabled = false;
-
-    const topSegmentHeight = Math.min(tileHeight, totalPixelHeight);
-    context.drawImage(
-        topImage,
-        0,
-        0,
-        tileWidth,
-        topSegmentHeight,
-        0,
-        0,
-        tileWidth,
-        topSegmentHeight,
-    );
-
-    let destY = topSegmentHeight;
-    while (destY < totalPixelHeight) {
-        const drawHeight = Math.min(tileHeight, totalPixelHeight - destY);
-        context.drawImage(
-            fillImage,
-            0,
-            0,
-            tileWidth,
-            drawHeight,
-            0,
-            destY,
-            tileWidth,
-            drawHeight,
-        );
-        destY += drawHeight;
-    }
-
-    return createCanvasTexture(canvas);
-};
-
-const createPartialOverlayTopTexture = (
-    baseTexture: THREE.Texture,
-    overlayTexture: THREE.Texture,
-    tintHex: string,
-    sourceRect: Rect,
-    targetRect: Rect,
-): THREE.CanvasTexture => {
-    const baseImage = getTextureImage(baseTexture);
-    const overlayImage = getTextureImage(overlayTexture);
-    const canvas = document.createElement('canvas');
-    canvas.width = baseImage.width;
-    canvas.height = baseImage.height;
-    const context = get2dContext(canvas);
-    context.drawImage(baseImage, 0, 0);
-
-    const overlayCanvas = document.createElement('canvas');
-    overlayCanvas.width = overlayImage.width;
-    overlayCanvas.height = overlayImage.height;
-    const overlayContext = get2dContext(overlayCanvas);
-    overlayContext.drawImage(overlayImage, 0, 0);
-    overlayContext.globalCompositeOperation = 'source-atop';
-    overlayContext.fillStyle = tintHex;
-    overlayContext.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    overlayContext.globalCompositeOperation = 'source-over';
-
-    context.drawImage(
-        overlayCanvas,
-        sourceRect.x,
-        sourceRect.y,
-        sourceRect.width,
-        sourceRect.height,
-        targetRect.x,
-        targetRect.y,
-        targetRect.width,
-        targetRect.height,
-    );
-
-    return createCanvasTexture(canvas);
-};
-
 export interface TerrainTextureContext {
     selectedWaterKeys: Set<string>;
     springFlowerTextures: Array<THREE.Texture>;
@@ -402,75 +147,6 @@ export interface TerrainTextureContext {
     getWaterBlockGeometry: (cell: CalendarMetric) => THREE.BufferGeometry;
     getBlockMaterials: (cell: CalendarMetric) => Array<THREE.Material>;
 }
-
-export const loadSceneTextures = async (
-    assets: SceneRuntimeAssets,
-): Promise<LoadedSceneTextures> => {
-    const textureLoader = new THREE.TextureLoader();
-    const [
-        sheepBaseTexture,
-        sheepFurTexture,
-        grassTopTexture,
-        grassSideTexture,
-        grassSideOverlayTexture,
-        grassSnowTexture,
-        pinkPetalsTexture,
-        leafLitterTexture,
-        poppyTexture,
-        dandelionTexture,
-        cornflowerTexture,
-        blueOrchidTexture,
-        azureBluetTexture,
-        pinkTulipTexture,
-        whiteTulipTexture,
-        snowTexture,
-        dirtTexture,
-        waterTopTexture,
-        waterSideTexture,
-    ] = await Promise.all([
-        loadTexture(textureLoader, assets.sheepTexturePath),
-        loadTexture(textureLoader, assets.sheepFurTexturePath),
-        loadTexture(textureLoader, assets.grassTopTexturePath),
-        loadTexture(textureLoader, assets.grassSideTexturePath),
-        loadTexture(textureLoader, assets.grassSideOverlayTexturePath),
-        loadTexture(textureLoader, assets.grassSnowTexturePath),
-        loadTexture(textureLoader, assets.pinkPetalsTexturePath),
-        loadTexture(textureLoader, assets.leafLitterTexturePath),
-        loadTexture(textureLoader, assets.poppyTexturePath),
-        loadTexture(textureLoader, assets.dandelionTexturePath),
-        loadTexture(textureLoader, assets.cornflowerTexturePath),
-        loadTexture(textureLoader, assets.blueOrchidTexturePath),
-        loadTexture(textureLoader, assets.azureBluetTexturePath),
-        loadTexture(textureLoader, assets.pinkTulipTexturePath),
-        loadTexture(textureLoader, assets.whiteTulipTexturePath),
-        loadTexture(textureLoader, assets.snowTexturePath),
-        loadTexture(textureLoader, assets.dirtTexturePath),
-        loadTexture(textureLoader, assets.waterTopTexturePath),
-        loadTexture(textureLoader, assets.waterSideTexturePath),
-    ]);
-
-    return {
-        sheepBaseTexture,
-        sheepFurTexture,
-        grassTopTexture,
-        grassSideTexture,
-        grassSideOverlayTexture,
-        grassSnowTexture,
-        pinkPetalsTexture,
-        leafLitterTexture,
-        poppyTexture,
-        dandelionTexture,
-        cornflowerTexture,
-        blueOrchidTexture,
-        azureBluetTexture,
-        pinkTulipTexture,
-        whiteTulipTexture,
-        snowTexture,
-        dirtTexture,
-        waterTopTexture,
-        waterSideTexture,
-    };
-};
 
 export const createTerrainTextureContext = (
     sceneData: SceneData,

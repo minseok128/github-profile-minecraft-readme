@@ -81,7 +81,7 @@ interface GitHubNextResponse {
 const postGraphql = async <T>(
     token: string,
     query: string,
-    variables: Record<string, string>,
+    variables: Record<string, unknown>,
 ): Promise<T> => {
     const response = await axios.post<T>(
         GITHUB_GRAPHQL_URL,
@@ -104,18 +104,19 @@ export const fetchFirstGithubProfile = async (
     year?: number,
     contributionWindow?: ContributionWindow,
 ): Promise<GitHubFirstResponse> => {
-    const contributionArgs = year
-        ? `(from: "${year}-01-01T00:00:00.000Z", to: "${year}-12-31T23:59:59.000Z")`
-        : contributionWindow
-          ? `(from: "${contributionWindow.from}", to: "${contributionWindow.to}")`
-          : '';
+    const from = year
+        ? `${year}-01-01T00:00:00.000Z`
+        : contributionWindow?.from;
+    const to = year
+        ? `${year}-12-31T23:59:59.000Z`
+        : contributionWindow?.to;
 
     return postGraphql<GitHubFirstResponse>(
         token,
         `
-            query($login: String!) {
+            query($login: String!, $from: DateTime, $to: DateTime, $maxRepos: Int!) {
                 user(login: $login) {
-                    contributionsCollection${contributionArgs} {
+                    contributionsCollection(from: $from, to: $to) {
                         contributionCalendar {
                             totalContributions
                             weeks {
@@ -126,7 +127,7 @@ export const fetchFirstGithubProfile = async (
                                 }
                             }
                         }
-                        commitContributionsByRepository(maxRepositories: ${MAX_REPOS_PER_QUERY}) {
+                        commitContributionsByRepository(maxRepositories: $maxRepos) {
                             repository {
                                 primaryLanguage {
                                     name
@@ -143,7 +144,7 @@ export const fetchFirstGithubProfile = async (
                         totalPullRequestReviewContributions
                         totalRepositoryContributions
                     }
-                    repositories(first: ${MAX_REPOS_PER_QUERY}, ownerAffiliations: OWNER) {
+                    repositories(first: $maxRepos, ownerAffiliations: OWNER) {
                         edges {
                             cursor
                         }
@@ -155,7 +156,7 @@ export const fetchFirstGithubProfile = async (
                 }
             }
         `,
-        { login: username },
+        { login: username, from, to, maxRepos: MAX_REPOS_PER_QUERY },
     );
 };
 
@@ -167,9 +168,9 @@ const fetchNextRepositories = async (
     postGraphql<GitHubNextResponse>(
         token,
         `
-            query($login: String!, $cursor: String!) {
+            query($login: String!, $cursor: String!, $maxRepos: Int!) {
                 user(login: $login) {
-                    repositories(after: $cursor, first: ${MAX_REPOS_PER_QUERY}, ownerAffiliations: OWNER) {
+                    repositories(after: $cursor, first: $maxRepos, ownerAffiliations: OWNER) {
                         edges {
                             cursor
                         }
@@ -184,6 +185,7 @@ const fetchNextRepositories = async (
         {
             login: username,
             cursor,
+            maxRepos: MAX_REPOS_PER_QUERY,
         },
     );
 
