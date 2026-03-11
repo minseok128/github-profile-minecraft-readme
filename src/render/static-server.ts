@@ -45,19 +45,31 @@ export const startStaticSceneServer = async (
             }
 
             let filePath: string | null = null;
+            let allowedRoot: string | null = null;
             if (requestUrl.pathname.startsWith('/vendor/')) {
+                allowedRoot = path.resolve(projectRoot, 'node_modules/three/build');
                 filePath = path.join(
-                    projectRoot,
-                    'node_modules/three/build',
+                    allowedRoot,
                     requestUrl.pathname.replace('/vendor/', ''),
                 );
             } else if (requestUrl.pathname.startsWith('/assets/')) {
-                filePath = path.join(projectRoot, requestUrl.pathname.slice(1));
+                allowedRoot = path.resolve(projectRoot, 'assets');
+                filePath = path.join(
+                    allowedRoot,
+                    requestUrl.pathname.replace('/assets/', ''),
+                );
             }
 
-            if (!filePath) {
+            if (!filePath || !allowedRoot) {
                 response.writeHead(404);
                 response.end('Not found');
+                return;
+            }
+
+            const resolvedPath = path.resolve(filePath);
+            if (!resolvedPath.startsWith(allowedRoot + path.sep) && resolvedPath !== allowedRoot) {
+                response.writeHead(403);
+                response.end('Forbidden');
                 return;
             }
 
