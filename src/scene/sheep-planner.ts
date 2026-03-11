@@ -319,26 +319,6 @@ const buildLoopPlan = (
     };
 };
 
-const pickWeightedColor = (
-    seedBase: number,
-    colors: ReadonlyArray<SheepColorDefinition> = MINECRAFT_SHEEP_COLORS,
-): SheepColorDefinition => {
-    const totalWeight = colors.reduce(
-        (sum, color) => sum + color.weight,
-        0,
-    );
-    let roll = mixSeed(seedBase) % totalWeight;
-
-    for (const color of colors) {
-        if (roll < color.weight) {
-            return color;
-        }
-        roll -= color.weight;
-    }
-
-    return colors[0];
-};
-
 const buildGlobalColorAssignments = (
     sheepSlots: Array<{
         islandId: number;
