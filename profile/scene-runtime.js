@@ -26725,36 +26725,10 @@ var buildCatRuntime = ({
   const sprintAmplitude = degToRad2(CAT_SPRINT_LEG_AMPLITUDE_DEG);
   const applyAtTime = (sceneTimeSec) => {
     catInstances.forEach((cat) => {
-      const cycleSec = 6;
+      const cycleSec = loopDurationSec;
       const phase = sceneTimeSec % cycleSec;
-      let walkBlend;
-      let progress;
-      if (phase < 1) {
-        walkBlend = 0;
-        progress = 0;
-      } else if (phase < 3) {
-        walkBlend = 1;
-        const walkT = (phase - 1) / 2;
-        progress = walkT * (1 / Math.max(1, cat.route.length - 1));
-      } else if (phase < 4) {
-        walkBlend = 0;
-        progress = 1 / Math.max(1, cat.route.length - 1);
-      } else {
-        walkBlend = 1;
-        const walkT = (phase - 4) / 2;
-        const oneCell = 1 / Math.max(1, cat.route.length - 1);
-        progress = oneCell * (1 - walkT);
-      }
-      if (phase >= 0.7 && phase < 1) {
-        walkBlend = (phase - 0.7) / 0.3;
-      } else if (phase >= 2.7 && phase < 3) {
-        walkBlend = 1 - (phase - 2.7) / 0.3;
-      } else if (phase >= 3.7 && phase < 4) {
-        walkBlend = (phase - 3.7) / 0.3;
-      } else if (phase >= 5.7 && phase < 6) {
-        walkBlend = 1 - (phase - 5.7) / 0.3;
-      }
-      walkBlend = walkBlend * walkBlend * (3 - 2 * walkBlend);
+      const progress = phase / cycleSec;
+      const walkBlend = 1;
       const routeSample = sampleRouteAtProgress(
         cat.routeMetrics,
         progress

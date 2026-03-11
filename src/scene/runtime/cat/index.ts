@@ -112,44 +112,11 @@ export const buildCatRuntime = ({
 
     const applyAtTime = (sceneTimeSec: number): void => {
         catInstances.forEach((cat) => {
-            // DEBUG: stand(1s) → walk forward 1 cell(2s) → stand(1s) → walk back(2s)
-            const cycleSec = 6.0;
+            // Continuous walk forward only. progress: 0 → 1 over loopDurationSec.
+            const cycleSec = loopDurationSec;
             const phase = sceneTimeSec % cycleSec;
-            // 0-1s: stand, 1-3s: walk forward, 3-4s: stand, 4-6s: walk back
-            let walkBlend: number;
-            let progress: number;
-            if (phase < 1.0) {
-                // standing at start
-                walkBlend = 0;
-                progress = 0;
-            } else if (phase < 3.0) {
-                // walking forward
-                walkBlend = 1.0;
-                const walkT = (phase - 1.0) / 2.0;
-                progress = walkT * (1 / Math.max(1, cat.route.length - 1)); // 1 cell
-            } else if (phase < 4.0) {
-                // standing at end
-                walkBlend = 0;
-                progress = 1 / Math.max(1, cat.route.length - 1);
-            } else {
-                // walking back
-                walkBlend = 1.0;
-                const walkT = (phase - 4.0) / 2.0;
-                const oneCell = 1 / Math.max(1, cat.route.length - 1);
-                progress = oneCell * (1 - walkT);
-            }
-
-            // Smooth walk blend transitions (0.3s fade)
-            if (phase >= 0.7 && phase < 1.0) {
-                walkBlend = (phase - 0.7) / 0.3;
-            } else if (phase >= 2.7 && phase < 3.0) {
-                walkBlend = 1.0 - (phase - 2.7) / 0.3;
-            } else if (phase >= 3.7 && phase < 4.0) {
-                walkBlend = (phase - 3.7) / 0.3;
-            } else if (phase >= 5.7 && phase < 6.0) {
-                walkBlend = 1.0 - (phase - 5.7) / 0.3;
-            }
-            walkBlend = walkBlend * walkBlend * (3 - 2 * walkBlend);
+            const progress = phase / cycleSec;
+            const walkBlend = 1.0;
 
             const routeSample = sampleRouteAtProgress(
                 cat.routeMetrics,
