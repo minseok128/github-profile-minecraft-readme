@@ -35,7 +35,7 @@ jobs:
 
       - name: Render profile assets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           npm run render -- --username "${{ github.repository_owner }}" --output-dir profile
 
