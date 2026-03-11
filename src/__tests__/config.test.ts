@@ -79,6 +79,6 @@ describe('DEFAULT_CONFIG', () => {
         expect(DEFAULT_CONFIG.height).toBe(892);
         expect(DEFAULT_CONFIG.background).toBe('transparent');
         expect(DEFAULT_CONFIG.gif.fps).toBe(10);
-        expect(DEFAULT_CONFIG.gif.durationSec).toBe(5);
+        expect(DEFAULT_CONFIG.gif.durationSec).toBe(8);
     });
 });

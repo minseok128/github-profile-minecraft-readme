@@ -24,7 +24,7 @@ Options:
   --width <n>           Image width in pixels (default: 1200)
   --height <n>          Image height in pixels (default: 892)
   --background <type>   Background type: sky | transparent (default: transparent)
-  --duration <sec>      GIF duration in seconds (default: 5)
+  --duration <sec>      GIF duration in seconds (default: 8)
   --fps <n>             GIF frames per second (default: 10)
   --emit-html           Also output standalone HTML preview
   --no-gif              Skip GIF generation

@@ -18742,10 +18742,10 @@ function setValueV4ui(gl, v) {
 }
 function setValueT1(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
   let emptyTexture2D;
   if (this.type === gl.SAMPLER_2D_SHADOW) {
@@ -18754,34 +18754,34 @@ function setValueT1(gl, v, textures) {
   } else {
     emptyTexture2D = emptyTexture;
   }
-  textures.setTexture2D(v || emptyTexture2D, unit2);
+  textures.setTexture2D(v || emptyTexture2D, unit3);
 }
 function setValueT3D1(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
-  textures.setTexture3D(v || empty3dTexture, unit2);
+  textures.setTexture3D(v || empty3dTexture, unit3);
 }
 function setValueT6(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
-  textures.setTextureCube(v || emptyCubeTexture, unit2);
+  textures.setTextureCube(v || emptyCubeTexture, unit3);
 }
 function setValueT2DArray1(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
-  textures.setTexture2DArray(v || emptyArrayTexture, unit2);
+  textures.setTexture2DArray(v || emptyArrayTexture, unit3);
 }
 function getSingularSetter(type) {
   switch (type) {
@@ -26592,6 +26592,338 @@ var buildSheepRuntime = ({
   };
 };
 
+// src/scene/runtime/cat/constants.ts
+var unit2 = 1 / 16;
+var CAT_WALK_GAIT_FREQUENCY = 8.5;
+var CAT_WALK_LEG_AMPLITUDE_DEG = 22;
+var CAT_WALK_TAIL1_ROT = MathUtils.degToRad(-45);
+var CAT_SIT_BODY_ROT_DEG = -45;
+var CAT_SIT_BODY_DROP = 1 * unit2;
+var CAT_SIT_FRONT_LEG_ROT_DEG = 42.15;
+var CAT_SIT_BACK_LEG_ROT_DEG = -45;
+var CAT_SIT_TAIL1_ROT_DEG = 45;
+var CAT_SIT_TAIL2_ROT_DEG = 45;
+var CAT_SIT_HEAD_DROP = 1.25 * unit2;
+var CAT_LIE_BODY_Z_ROT_DEG = 90;
+var CAT_LIE_BODY_DROP = 4.5 * unit2;
+var CAT_LIE_FRONT_L_ROT_DEG = -72.81;
+var CAT_LIE_FRONT_R_ROT_DEG = -30;
+var CAT_LIE_BACK_L_ROT_DEG = -22.92;
+var CAT_LIE_BACK_R_ROT_DEG = 28.65;
+var CAT_LIE_BACK_R_Z_ROT_DEG = -28.65;
+var CAT_LIE_FRONT_R_Z_ROT_DEG = -14.46;
+var CAT_LIE_HEAD_X_ROT_DEG = -10;
+var CAT_LIE_HEAD_Y_ROT_DEG = 75.81;
+var CAT_LIE_TAIL1_ROT_DEG = -33.84;
+var CAT_LIE_TAIL2_ROT_DEG = -68.92;
+var CAT_SNEAK_BODY_DROP = 1 * unit2;
+var CAT_SNEAK_HEAD_DROP = 1 * unit2;
+var CAT_SNEAK_TAIL2_AMPLITUDE_DEG = 27 * 0.5;
+var CAT_SPRINT_GAIT_FREQUENCY = 12;
+var CAT_SPRINT_LEG_AMPLITUDE_DEG = 32;
+var CAT_SPRINT_TAIL2_AMPLITUDE_DEG = 18 * 0.8;
+var CAT_SPRINT_BR_PHASE_OFFSET = MathUtils.degToRad(17.19);
+var CAT_SPRINT_FL_PHASE_OFFSET = MathUtils.degToRad(197.19);
+
+// src/scene/runtime/cat/model.ts
+var createCatMaterial = (map) => {
+  map.minFilter = NearestFilter;
+  map.magFilter = NearestFilter;
+  map.colorSpace = SRGBColorSpace;
+  return new MeshStandardMaterial({
+    map,
+    roughness: 0.92,
+    metalness: 0,
+    transparent: true,
+    alphaTest: 0.08
+  });
+};
+var buildCat = (material, targetHeight) => {
+  const root = new Group();
+  const legLength = 6 * unit2;
+  const legOffsets = [
+    { x: -1 * unit2, z: -3 * unit2, uv: [40, 0] },
+    // FL
+    { x: 1 * unit2, z: -3 * unit2, uv: [40, 0] },
+    // FR
+    { x: -1 * unit2, z: 3 * unit2, uv: [8, 13] },
+    // BL
+    { x: 1 * unit2, z: 3 * unit2, uv: [8, 13] }
+    // BR
+  ];
+  const legPivotRaw = legOffsets.map(({ x, z, uv }) => {
+    const pivot = new Group();
+    pivot.position.set(x, legLength, z);
+    const leg = makeTexturedBox([2, 6, 2], uv, material, 64, 32);
+    leg.position.y = -3 * unit2;
+    pivot.add(leg);
+    root.add(pivot);
+    return pivot;
+  });
+  const legPivots = legPivotRaw;
+  const bodyGroup = new Group();
+  bodyGroup.position.y = legLength + 2 * unit2;
+  bodyGroup.rotation.x = -Math.PI / 2;
+  root.add(bodyGroup);
+  const body = makeTexturedBox([4, 8, 6], [20, 0], material, 64, 32);
+  bodyGroup.add(body);
+  const headPivot = new Group();
+  headPivot.position.set(0, legLength + 4 * unit2, -5 * unit2);
+  root.add(headPivot);
+  const head = makeTexturedBox([5, 4, 5], [0, 0], material, 64, 32);
+  headPivot.add(head);
+  const tail1Pivot = new Group();
+  tail1Pivot.position.set(0, legLength + 4 * unit2, 5 * unit2);
+  tail1Pivot.rotation.x = Math.PI / 3;
+  root.add(tail1Pivot);
+  const tail1 = makeTexturedBox([1, 5, 1], [0, 15], material, 64, 32);
+  tail1.position.y = 2.5 * unit2;
+  tail1Pivot.add(tail1);
+  const tail2Pivot = new Group();
+  tail2Pivot.position.y = 5 * unit2;
+  tail1Pivot.add(tail2Pivot);
+  const tail2 = makeTexturedBox([1, 5, 1], [0, 15], material, 64, 32);
+  tail2.position.y = 2.5 * unit2;
+  tail2Pivot.add(tail2);
+  const bounds = new Box3().setFromObject(root);
+  const size = bounds.getSize(new Vector3());
+  root.scale.setScalar(targetHeight / size.y);
+  return { root, legPivots, bodyGroup, headPivot, tail1Pivot, tail2Pivot };
+};
+var createCatInstance = (scene, catTexture, targetHeight) => {
+  const material = createCatMaterial(catTexture);
+  const cat = buildCat(material, targetHeight);
+  const shadow = new Mesh(
+    new CircleGeometry(0.4, 24),
+    new MeshBasicMaterial({
+      color: "#000000",
+      transparent: true,
+      opacity: 0.16
+    })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  scene.add(cat.root);
+  scene.add(shadow);
+  return { ...cat, shadow };
+};
+
+// src/scene/runtime/cat/animation.ts
+var getCatSegmentMix = (localTimeSec, segment, edgeSec) => {
+  if (!segment) {
+    return 0;
+  }
+  const segmentDuration = Math.max(segment.endSec - segment.startSec, 1e-6);
+  const fadeSec = Math.min(edgeSec, segmentDuration * 0.5);
+  if (fadeSec <= 1e-6) {
+    return localTimeSec >= segment.startSec && localTimeSec <= segment.endSec ? 1 : 0;
+  }
+  if (localTimeSec <= segment.startSec - fadeSec || localTimeSec >= segment.endSec + fadeSec) {
+    return 0;
+  }
+  if (localTimeSec < segment.startSec + fadeSec) {
+    return smootherstep01(
+      (localTimeSec - (segment.startSec - fadeSec)) / (fadeSec * 2)
+    );
+  }
+  if (localTimeSec > segment.endSec - fadeSec) {
+    return 1 - smootherstep01(
+      (localTimeSec - (segment.endSec - fadeSec)) / (fadeSec * 2)
+    );
+  }
+  return 1;
+};
+var findActiveCatLoopSegment = (loopPlan, localTimeSec) => loopPlan.segments.find(
+  (segment, segmentIndex) => localTimeSec >= segment.startSec && (localTimeSec < segment.endSec || segmentIndex === loopPlan.segments.length - 1)
+) ?? loopPlan.segments[loopPlan.segments.length - 1];
+var getDominantCatSegment = (loopPlan, kind, localTimeSec, edgeSec) => loopPlan.segments.reduce(
+  (best, segment) => {
+    if (segment.kind !== kind) {
+      return best;
+    }
+    const mix = getCatSegmentMix(localTimeSec, segment, edgeSec);
+    if (mix > best.mix) {
+      return { mix, segment };
+    }
+    return best;
+  },
+  { mix: 0, segment: null }
+);
+
+// src/scene/runtime/cat/index.ts
+var routeCellToVec3 = (cell) => new Vector3(cell.week, cell.worldHeight + 0.01, cell.dayOfWeek);
+var degToRad2 = MathUtils.degToRad;
+var buildCatRuntime = ({
+  scene,
+  sceneData,
+  gifDurationSec,
+  textures
+}) => {
+  const loopDurationSec = Math.max(gifDurationSec, 1e-3);
+  const catInstances = sceneData.showCat ? sceneData.catPlans.map((plan, catIndex) => {
+    const route = plan.route.map(routeCellToVec3);
+    return {
+      ...createCatInstance(
+        scene,
+        textures.catTexture,
+        sceneData.catTargetHeight
+      ),
+      route,
+      routeMetrics: buildRouteMetrics(route),
+      loopPlan: plan.loopPlan,
+      gaitPhaseOffset: Math.PI / 2 + plan.loopPlan.phaseOffsetSec * 4.7 + catIndex * 0.93,
+      catIndex,
+      routeIndex: 0,
+      state: "lie"
+    };
+  }) : [];
+  const legBaseY = 6 * unit2;
+  const bodyBaseY = legBaseY + 2 * unit2;
+  const headBaseY = legBaseY + 4 * unit2;
+  const headBaseZ = -5 * unit2;
+  const walkAmplitude = degToRad2(CAT_WALK_LEG_AMPLITUDE_DEG);
+  const sprintAmplitude = degToRad2(CAT_SPRINT_LEG_AMPLITUDE_DEG);
+  const FADE_SEC = 0.3;
+  const tail1BaseRotX = Math.PI / 3;
+  const applyAtTime = (sceneTimeSec) => {
+    catInstances.forEach((cat) => {
+      const localTimeSec = wrapLoopTime(
+        sceneTimeSec + cat.loopPlan.phaseOffsetSec,
+        loopDurationSec
+      );
+      const activeSeg = findActiveCatLoopSegment(cat.loopPlan, localTimeSec);
+      const segDur = Math.max(activeSeg.endSec - activeSeg.startSec, 1e-6);
+      const segT = Math.min(Math.max(
+        (localTimeSec - activeSeg.startSec) / segDur,
+        0
+      ), 1);
+      const routeProgress = activeSeg.progressStart + segT * (activeSeg.progressEnd - activeSeg.progressStart);
+      const routeSample = sampleRouteAtProgress(cat.routeMetrics, routeProgress);
+      cat.root.position.copy(routeSample.position);
+      if (routeSample.direction.lengthSq() > 1e-6) {
+        cat.root.rotation.y = Math.atan2(routeSample.direction.x, routeSample.direction.z) + Math.PI;
+      }
+      cat.shadow.position.set(routeSample.position.x, 0.03, routeSample.position.z);
+      const lieState = getDominantCatSegment(cat.loopPlan, "lie", localTimeSec, FADE_SEC);
+      const sitState = getDominantCatSegment(cat.loopPlan, "sit", localTimeSec, FADE_SEC);
+      const sneakState = getDominantCatSegment(cat.loopPlan, "sneak", localTimeSec, FADE_SEC);
+      const sprintState = getDominantCatSegment(cat.loopPlan, "sprint", localTimeSec, FADE_SEC);
+      const idleState = getDominantCatSegment(cat.loopPlan, "idle", localTimeSec, FADE_SEC);
+      const lieBlend = lieState.mix;
+      const sitBlend = Math.max(0, sitState.mix * (1 - lieBlend));
+      const sneakBlend = Math.max(0, sneakState.mix * (1 - lieBlend - sitBlend));
+      const sprintBlend = Math.max(0, sprintState.mix * (1 - lieBlend - sitBlend - sneakBlend));
+      const idleBlend = Math.max(0, idleState.mix * (1 - lieBlend - sitBlend - sneakBlend - sprintBlend));
+      const walkBlend = Math.max(0, 1 - lieBlend - sitBlend - sneakBlend - sprintBlend - idleBlend);
+      const movingBlend = walkBlend + sneakBlend + sprintBlend;
+      const walkDist = routeSample.distance;
+      const freq = sprintBlend > 0.5 ? CAT_SPRINT_GAIT_FREQUENCY : CAT_WALK_GAIT_FREQUENCY;
+      const gaitPhase = Math.PI / 2 + walkDist * freq;
+      const amp = sprintBlend > 0.5 ? sprintAmplitude : walkAmplitude;
+      const swing = Math.cos(gaitPhase) * amp * movingBlend;
+      const flPhase = sprintBlend > 0.5 ? Math.cos(gaitPhase + CAT_SPRINT_FL_PHASE_OFFSET) * sprintAmplitude * sprintBlend : swing;
+      const brPhase = sprintBlend > 0.5 ? Math.cos(gaitPhase + CAT_SPRINT_BR_PHASE_OFFSET) * sprintAmplitude * sprintBlend : swing;
+      let legFL = walkBlend > 0.01 || sneakBlend > 0.01 ? swing : 0;
+      let legFR = walkBlend > 0.01 || sneakBlend > 0.01 ? -swing : 0;
+      let legBL = walkBlend > 0.01 || sneakBlend > 0.01 ? -swing : 0;
+      let legBR = walkBlend > 0.01 || sneakBlend > 0.01 ? swing : 0;
+      let legFLz = 0, legFRz = 0, legBLz = 0, legBRz = 0;
+      if (sprintBlend > 0.01) {
+        legFL = flPhase;
+        legFR = -swing;
+        legBL = -swing;
+        legBR = brPhase;
+      }
+      if (sitBlend > 0.01) {
+        const sitFront = degToRad2(CAT_SIT_FRONT_LEG_ROT_DEG);
+        const sitBack = degToRad2(CAT_SIT_BACK_LEG_ROT_DEG);
+        legFL = legFL * (1 - sitBlend) + sitFront * sitBlend;
+        legFR = legFR * (1 - sitBlend) + sitFront * sitBlend;
+        legBL = legBL * (1 - sitBlend) + sitBack * sitBlend;
+        legBR = legBR * (1 - sitBlend) + sitBack * sitBlend;
+      }
+      if (lieBlend > 0.01) {
+        legFL = legFL * (1 - lieBlend) + degToRad2(CAT_LIE_FRONT_L_ROT_DEG) * lieBlend;
+        legFR = legFR * (1 - lieBlend) + degToRad2(CAT_LIE_FRONT_R_ROT_DEG) * lieBlend;
+        legBL = legBL * (1 - lieBlend) + degToRad2(CAT_LIE_BACK_L_ROT_DEG) * lieBlend;
+        legBR = legBR * (1 - lieBlend) + degToRad2(CAT_LIE_BACK_R_ROT_DEG) * lieBlend;
+        legFRz = degToRad2(CAT_LIE_FRONT_R_Z_ROT_DEG) * lieBlend;
+        legBRz = degToRad2(CAT_LIE_BACK_R_Z_ROT_DEG) * lieBlend;
+      }
+      cat.legPivots[0].rotation.x = legFL;
+      cat.legPivots[1].rotation.x = legFR;
+      cat.legPivots[2].rotation.x = legBL;
+      cat.legPivots[3].rotation.x = legBR;
+      cat.legPivots[0].rotation.z = legFLz;
+      cat.legPivots[1].rotation.z = legFRz;
+      cat.legPivots[2].rotation.z = legBLz;
+      cat.legPivots[3].rotation.z = legBRz;
+      const walkBob = Math.abs(Math.sin(gaitPhase)) * 0.05 * movingBlend;
+      let bodyY = bodyBaseY + walkBob;
+      let bodyRotX = -Math.PI / 2;
+      let bodyRotZ = 0;
+      if (sneakBlend > 0.01) {
+        bodyY -= CAT_SNEAK_BODY_DROP * sneakBlend;
+      }
+      if (sitBlend > 0.01) {
+        bodyY -= CAT_SIT_BODY_DROP * sitBlend;
+        bodyRotX += degToRad2(CAT_SIT_BODY_ROT_DEG) * sitBlend;
+      }
+      if (lieBlend > 0.01) {
+        bodyY -= CAT_LIE_BODY_DROP * lieBlend;
+        bodyRotZ = degToRad2(CAT_LIE_BODY_Z_ROT_DEG) * lieBlend;
+      }
+      cat.bodyGroup.position.y = bodyY;
+      cat.bodyGroup.rotation.x = bodyRotX;
+      cat.bodyGroup.rotation.z = bodyRotZ;
+      const headNod = Math.sin(gaitPhase * 0.5) * 0.04 * movingBlend;
+      let headY = headBaseY + headNod;
+      let headRotX = 0;
+      let headRotY = 0;
+      if (sneakBlend > 0.01) {
+        headY -= CAT_SNEAK_HEAD_DROP * sneakBlend;
+      }
+      if (sitBlend > 0.01) {
+        headY -= CAT_SIT_HEAD_DROP * sitBlend;
+      }
+      if (lieBlend > 0.01) {
+        headY -= CAT_LIE_BODY_DROP * lieBlend;
+        headRotX = degToRad2(CAT_LIE_HEAD_X_ROT_DEG) * lieBlend;
+        headRotY = degToRad2(CAT_LIE_HEAD_Y_ROT_DEG) * lieBlend;
+      }
+      cat.headPivot.position.set(0, headY, headBaseZ);
+      cat.headPivot.rotation.x = headRotX;
+      cat.headPivot.rotation.y = headRotY;
+      const tailSway1 = Math.sin(gaitPhase * 1.3) * degToRad2(15) * movingBlend;
+      const tailSway2 = Math.sin(gaitPhase * 1.3 + 0.5) * degToRad2(20) * movingBlend;
+      let tail1RotX = 0;
+      let tail2RotX = 0;
+      if (sitBlend > 0.01) {
+        tail1RotX += degToRad2(CAT_SIT_TAIL1_ROT_DEG) * sitBlend;
+        tail2RotX += degToRad2(CAT_SIT_TAIL2_ROT_DEG) * sitBlend;
+      }
+      if (lieBlend > 0.01) {
+        tail1RotX += degToRad2(CAT_LIE_TAIL1_ROT_DEG) * lieBlend;
+        tail2RotX += degToRad2(CAT_LIE_TAIL2_ROT_DEG) * lieBlend;
+      }
+      const tail1BaseY = legBaseY + 4 * unit2;
+      let tail1Y = tail1BaseY;
+      let tail1Z = tailSway1;
+      if (lieBlend > 0.01) {
+        tail1Y -= CAT_LIE_BODY_DROP * lieBlend;
+        tail1Z += degToRad2(CAT_LIE_BODY_Z_ROT_DEG) * lieBlend;
+      }
+      cat.tail1Pivot.position.y = tail1Y;
+      cat.tail1Pivot.rotation.x = tail1BaseRotX + tail1RotX;
+      cat.tail1Pivot.rotation.z = tail1Z;
+      cat.tail2Pivot.rotation.x = tail2RotX;
+      cat.tail2Pivot.rotation.z = tailSway2;
+      cat.state = lieBlend >= 0.5 ? "lie" : sitBlend >= 0.5 ? "sit" : sneakBlend >= 0.5 ? "sneak" : sprintBlend >= 0.5 ? "sprint" : walkBlend >= 0.5 ? "walk" : "idle";
+      cat.routeIndex = routeSample.routeIndex;
+    });
+  };
+  return { catInstances, applyAtTime };
+};
+
 // src/scene/runtime/terrain/flora.ts
 var MINECRAFT_FLOWER_BASE_SCALE = 0.84;
 var MINECRAFT_FLOWER_SCALE_VARIANCE = 0.12;
@@ -26817,7 +27149,8 @@ var loadSceneTextures = async (assets) => {
     snowTexture,
     dirtTexture,
     waterTopTexture,
-    waterSideTexture
+    waterSideTexture,
+    catTexture
   ] = await Promise.all([
     loadTexture(textureLoader, assets.sheepTexturePath),
     loadTexture(textureLoader, assets.sheepFurTexturePath),
@@ -26837,7 +27170,8 @@ var loadSceneTextures = async (assets) => {
     loadTexture(textureLoader, assets.snowTexturePath),
     loadTexture(textureLoader, assets.dirtTexturePath),
     loadTexture(textureLoader, assets.waterTopTexturePath),
-    loadTexture(textureLoader, assets.waterSideTexturePath)
+    loadTexture(textureLoader, assets.waterSideTexturePath),
+    loadTexture(textureLoader, assets.catTexturePath)
   ]);
   return {
     sheepBaseTexture,
@@ -26858,7 +27192,8 @@ var loadSceneTextures = async (assets) => {
     snowTexture,
     dirtTexture,
     waterTopTexture,
-    waterSideTexture
+    waterSideTexture,
+    catTexture
   };
 };
 
@@ -27382,6 +27717,12 @@ var start = async () => {
     gifDurationSec: payload.gifDurationSec,
     textures
   });
+  const catRuntime = buildCatRuntime({
+    scene,
+    sceneData: payload.sceneData,
+    gifDurationSec: payload.gifDurationSec,
+    textures
+  });
   const contentBounds = terrain.contentBounds.clone();
   sheepRuntime.sheepInstances.forEach((sheepInstance) => {
     sheepInstance.route.forEach((point) => {
@@ -27393,6 +27734,20 @@ var start = async () => {
           point.x + 0.45,
           point.y + payload.sceneData.sheepTargetHeight,
           point.z + 0.45
+        )
+      );
+    });
+  });
+  catRuntime.catInstances.forEach((catInstance) => {
+    catInstance.route.forEach((point) => {
+      contentBounds.expandByPoint(
+        new Vector3(point.x - 0.35, point.y, point.z - 0.35)
+      );
+      contentBounds.expandByPoint(
+        new Vector3(
+          point.x + 0.35,
+          point.y + payload.sceneData.catTargetHeight,
+          point.z + 0.35
         )
       );
     });
@@ -27430,6 +27785,7 @@ var start = async () => {
   };
   const renderSceneAtTime = (timeSec) => {
     sheepRuntime.applyAtTime(timeSec);
+    catRuntime.applyAtTime(timeSec);
     renderer.render(scene, camera);
     updateDebugState();
   };

@@ -112,6 +112,26 @@ export interface SheepSpawnPlan {
     loopPlan: SheepLoopPlan;
 }
 
+export interface CatLoopSegment {
+    readonly kind: 'walk' | 'sit' | 'idle' | 'lie' | 'sneak' | 'sprint';
+    readonly startSec: number;
+    readonly endSec: number;
+    readonly progressStart: number;
+    readonly progressEnd: number;
+}
+
+export interface CatLoopPlan {
+    readonly phaseOffsetSec: number;
+    readonly segments: ReadonlyArray<CatLoopSegment>;
+}
+
+export interface CatSpawnPlan {
+    readonly islandId: number;
+    readonly catIndex: number;
+    readonly route: ReadonlyArray<GrassWorldCell>;
+    readonly loopPlan: CatLoopPlan;
+}
+
 export interface PanelPattern {
     width: number;
     bitmap: Array<number | string>;

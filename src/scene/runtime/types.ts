@@ -1,6 +1,7 @@
 import type { Texture } from 'three';
 import type {
     CalendarMetric,
+    CatSpawnPlan,
     RenderConfig,
     SheepSpawnPlan,
 } from '../../types.js';
@@ -34,6 +35,9 @@ export interface SceneData {
     calendarMetrics: Array<CalendarMetric>;
     monthGuideEntries: Array<SceneMonthGuideEntry>;
     sheepPlans: Array<SheepSpawnPlan>;
+    catPlans: ReadonlyArray<CatSpawnPlan>;
+    showCat: boolean;
+    catTargetHeight: number;
     blossomCoverStops: ReadonlyArray<SeasonalAmountStop>;
     leafLitterCoverStops: ReadonlyArray<SeasonalAmountStop>;
     springFlowerCoverStops: ReadonlyArray<SeasonalAmountStop>;
@@ -68,6 +72,7 @@ export interface SceneRuntimeAssets {
     dirtTexturePath: string;
     waterTopTexturePath: string;
     waterSideTexturePath: string;
+    catTexturePath: string;
 }
 
 export interface SceneBootstrapPayload {
@@ -97,6 +102,7 @@ export interface LoadedSceneTextures {
     dirtTexture: Texture;
     waterTopTexture: Texture;
     waterSideTexture: Texture;
+    catTexture: Texture;
 }
 
 export interface SheepStateSnapshot {
@@ -117,6 +123,16 @@ export interface SheepStateSnapshot {
     leg1: number;
     leg2: number;
     leg3: number;
+}
+
+export interface CatStateSnapshot {
+    x: number;
+    y: number;
+    z: number;
+    yaw: number;
+    state: string;
+    shadowY: number;
+    routeIndex: number;
 }
 
 export interface SceneDebugState {
