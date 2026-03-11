@@ -33,6 +33,14 @@ export const writeTextFile = async (
     await writeFile(filePath, content, 'utf8');
 };
 
+/**
+ * FNV-1a hash returning an unsigned 32-bit integer.
+ *
+ * A similar FNV-1a implementation exists in `src/scene/runtime/textures/seasonal.ts`
+ * that returns a normalized [0, 1) float instead. The two are intentionally separate:
+ * this module runs in Node and imports `node:fs/promises`, so it cannot be bundled
+ * into the browser runtime without breaking esbuild.
+ */
 export const hashString = (value: string): number => {
     let hash = 2166136261;
     for (let i = 0; i < value.length; i += 1) {

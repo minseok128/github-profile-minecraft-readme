@@ -12,6 +12,27 @@ const projectRoot = path.dirname(
     fileURLToPath(new URL('../package.json', import.meta.url)),
 );
 
+const printUsage = (): void => {
+    console.log(`Usage: npx tsx src/cli.ts [options]
+
+Options:
+  --username <name>     GitHub username to render
+  --token <token>       GitHub personal access token (or set GITHUB_TOKEN env)
+  --sample              Use sample data instead of GitHub API
+  --output-dir <path>   Output directory (default: profile)
+  --weeks <n>           Number of weeks to show (default: 53)
+  --width <n>           Image width in pixels (default: 1200)
+  --height <n>          Image height in pixels (default: 892)
+  --background <type>   Background type: sky | transparent (default: transparent)
+  --duration <sec>      GIF duration in seconds (default: 5)
+  --fps <n>             GIF frames per second (default: 10)
+  --emit-html           Also output standalone HTML preview
+  --no-gif              Skip GIF generation
+  --no-png              Skip PNG generation
+  --config <path>       Path to config JSON file
+  --help                Show this help message`);
+};
+
 const loadLocalEnv = async (rootDir: string): Promise<void> => {
     const envPath = path.join(rootDir, '.env.local');
     let content = '';
@@ -82,6 +103,12 @@ const buildTrailing365DayWindow = (): { from: string; to: string } => {
 const main = async (): Promise<void> => {
     await loadLocalEnv(projectRoot);
     const cliOptions = parseCliOptions(process.argv.slice(2));
+
+    if (cliOptions.help) {
+        printUsage();
+        return;
+    }
+
     const config = await loadRenderConfig(projectRoot, cliOptions);
     const username =
         cliOptions.username ??
@@ -138,6 +165,15 @@ const main = async (): Promise<void> => {
 };
 
 void main().catch((error: unknown) => {
-    console.error(error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: ${message}`);
+    if (
+        message.includes('GITHUB_TOKEN') ||
+        message.includes('Invalid config')
+    ) {
+        console.error('\nRun with --help for usage information.');
+    } else {
+        console.error(error);
+    }
     process.exitCode = 1;
 });
