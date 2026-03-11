@@ -65,6 +65,9 @@ const buildCalendarMetrics = (
     weeks: number,
 ): Array<CalendarMetric> => {
     const visibleCalendar = trimLastWeeks(userSnapshot.calendar, weeks);
+    if (visibleCalendar.length === 0) {
+        throw new Error('No contribution calendar data available. The GitHub API returned an empty calendar.');
+    }
     const firstDate = new Date(visibleCalendar[0].date);
     const sundayOfFirstWeek = toEpochDays(firstDate) - firstDate.getUTCDay();
 
@@ -274,6 +277,9 @@ const buildSceneData = (
     config: RenderConfig,
 ): SceneData => {
     const calendarMetrics = buildCalendarMetrics(userSnapshot, config.weeks);
+    if (calendarMetrics.length === 0) {
+        throw new Error('No calendar metrics to render.');
+    }
     const monthGuideEntries = buildMonthGuideEntries(calendarMetrics);
     const period = `${calendarMetrics[0].date} / ${
         calendarMetrics[calendarMetrics.length - 1].date
