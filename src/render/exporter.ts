@@ -17,12 +17,23 @@ import { ensureDir, writeTextFile } from '../utils.js';
 import { buildSceneRuntimeBundle } from './scene-runtime-bundle.js';
 import { startStaticSceneServer } from './static-server.js';
 
-const runCommand = async (command: string, args: Array<string>): Promise<void> =>
+const runCommand = async (
+    command: string,
+    args: Array<string>,
+    timeoutMs = 120_000,
+): Promise<void> =>
     new Promise<void>((resolve, reject) => {
         const child = spawn(command, args, {
             stdio: 'inherit',
+            signal: AbortSignal.timeout(timeoutMs),
         });
-        child.on('error', reject);
+        child.on('error', (error) => {
+            if (error.name === 'AbortError') {
+                reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+                return;
+            }
+            reject(error);
+        });
         child.on('exit', (code) => {
             if (code === 0) {
                 resolve();
