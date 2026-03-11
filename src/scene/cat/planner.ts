@@ -6,7 +6,93 @@ import type {
     GrassWorldCell,
 } from '../../types.js';
 import { hashString, mulberry32 } from '../../utils.js';
-import { findGrassIslands, chooseWalkPath } from '../sheep/islands.js';
+import { findGrassIslands, toCellKey } from '../sheep/islands.js';
+import { ISLAND_DIRECTIONS } from '../sheep/constants.js';
+
+/**
+ * Build a circular route for the cat: go out, loop around, return to start.
+ * Uses BFS to find a path from start, then greedily walks back toward start
+ * to form a closed loop. Total cells ≈ maxCells.
+ */
+const buildCircularRoute = (
+    islandCells: ReadonlyArray<GrassWorldCell>,
+    startCell: GrassWorldCell,
+    directionOffset: number,
+    maxCells: number,
+): Array<GrassWorldCell> => {
+    if (islandCells.length <= 1) return [startCell];
+
+    const cellMap = new Map(islandCells.map((c) => [toCellKey(c), c]));
+    const halfMax = Math.floor(maxCells / 2);
+
+    // Phase 1: Walk outward from start for ~half the budget
+    const outPath = [startCell];
+    const visited = new Set<string>([toCellKey(startCell)]);
+    let current = startCell;
+    let dirIdx = directionOffset % ISLAND_DIRECTIONS.length;
+
+    for (let step = 0; step < halfMax; step++) {
+        // Try directions in rotated order, prefer continuing forward
+        let found = false;
+        for (let d = 0; d < ISLAND_DIRECTIONS.length; d++) {
+            const di = (dirIdx + d) % ISLAND_DIRECTIONS.length;
+            const [dw, dd] = ISLAND_DIRECTIONS[di];
+            const key = `${current.week + dw},${current.dayOfWeek + dd}`;
+            const next = cellMap.get(key);
+            if (next && !visited.has(key)) {
+                visited.add(key);
+                outPath.push(next);
+                current = next;
+                dirIdx = di;
+                found = true;
+                break;
+            }
+        }
+        if (!found) break;
+    }
+
+    // Phase 2: Walk back toward start, using remaining budget
+    const returnBudget = maxCells - outPath.length;
+    const returnPath: Array<GrassWorldCell> = [];
+    const startKey = toCellKey(startCell);
+
+    for (let step = 0; step < returnBudget; step++) {
+        // Check if we can reach start directly
+        for (const [dw, dd] of ISLAND_DIRECTIONS) {
+            const key = `${current.week + dw},${current.dayOfWeek + dd}`;
+            if (key === startKey) {
+                // Can reach start — close the loop
+                return [...outPath, ...returnPath, startCell];
+            }
+        }
+
+        // Greedily pick the unvisited neighbor closest to start
+        let bestCell: GrassWorldCell | null = null;
+        let bestDist = Infinity;
+        for (const [dw, dd] of ISLAND_DIRECTIONS) {
+            const key = `${current.week + dw},${current.dayOfWeek + dd}`;
+            const next = cellMap.get(key);
+            if (next && !visited.has(key)) {
+                const dist = Math.hypot(
+                    next.week - startCell.week,
+                    next.dayOfWeek - startCell.dayOfWeek,
+                );
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestCell = next;
+                }
+            }
+        }
+
+        if (!bestCell) break;
+        visited.add(toCellKey(bestCell));
+        returnPath.push(bestCell);
+        current = bestCell;
+    }
+
+    // Close the loop — add start at the end
+    return [...outPath, ...returnPath, startCell];
+};
 
 const CAT_WALK_SPEED = 1.8;
 const CAT_SNEAK_SPEED = 1.0;
@@ -56,7 +142,6 @@ const buildCatLoopPlan = (
     const segments: Array<CatLoopSegment> = [];
     let cursor = 0;
     let currentProgress = 0;
-    let direction = 1; // 1 = forward, -1 = backward along route
 
     // Start with lie down so the initial frame shows a relaxed cat.
     // Minimum 2s to ensure the lie pose is clearly visible before transitioning.
@@ -87,126 +172,74 @@ const buildCatLoopPlan = (
         cursor += standUpDuration;
     }
 
-    while (cursor < durationSec - 0.01) {
-        const remaining = durationSec - cursor;
+    // Generate varied movement segments that together cover progress 0→1.0
+    // exactly, for a seamless circular loop.
+    const movementTimeSec = durationSec - cursor;
+    if (movementTimeSec > 0.1) {
+        // First, plan time segments with varied kinds
+        const moveSegs: Array<{ kind: CatLoopSegment['kind']; duration: number; speedWeight: number }> = [];
+        let moveCursor = 0;
+        while (moveCursor < movementTimeSec - 0.05) {
+            const remaining = movementTimeSec - moveCursor;
+            const roll = random();
+            // 50% walk, 20% sneak, 15% sprint, 15% idle (brief pauses)
+            const kind: CatLoopSegment['kind'] =
+                roll < 0.50 ? 'walk'
+                : roll < 0.70 ? 'sneak'
+                : roll < 0.85 ? 'sprint'
+                : 'idle';
 
-        // Cats: 40% walk, 15% sneak, 10% sprint, 20% sit, 15% idle
-        const roll = random();
-        const kind: CatLoopSegment['kind'] =
-            roll < 0.40 ? 'walk'
-            : roll < 0.55 ? 'sneak'
-            : roll < 0.65 ? 'sprint'
-            : roll < 0.85 ? 'sit'
-            : 'idle';
-
-        let segDuration: number;
-        if (kind === 'walk') {
-            segDuration = Math.min(
-                remaining,
-                randBetween(random, CAT_WALK_DURATION_MIN, CAT_WALK_DURATION_MAX),
-            );
-        } else if (kind === 'sneak') {
-            segDuration = Math.min(
-                remaining,
-                randBetween(random, CAT_SNEAK_DURATION_MIN, CAT_SNEAK_DURATION_MAX),
-            );
-        } else if (kind === 'sprint') {
-            segDuration = Math.min(
-                remaining,
-                randBetween(random, CAT_SPRINT_DURATION_MIN, CAT_SPRINT_DURATION_MAX),
-            );
-        } else if (kind === 'sit') {
-            segDuration = Math.min(
-                remaining,
-                randBetween(random, CAT_SIT_DURATION_MIN, CAT_SIT_DURATION_MAX),
-            );
-        } else {
-            segDuration = Math.min(
-                remaining,
-                randBetween(random, CAT_IDLE_DURATION_MIN, CAT_IDLE_DURATION_MAX),
-            );
-        }
-
-        segDuration = Math.max(segDuration, 0.1);
-
-        let progressEnd: number;
-        if (kind === 'walk' || kind === 'sneak' || kind === 'sprint') {
-            const speed = kind === 'sprint' ? CAT_SPRINT_SPEED
-                : kind === 'sneak' ? CAT_SNEAK_SPEED
-                : CAT_WALK_SPEED;
-            const moveDistance = speed * segDuration;
-            const progressAdvance = moveDistance / Math.max(1, route.length - 1);
-
-            // Ping-pong: reverse direction when hitting route ends
-            let targetProgress = currentProgress + progressAdvance * direction;
-            if (targetProgress > 1) {
-                targetProgress = 1;
-                direction = -1;
-            } else if (targetProgress < 0) {
-                targetProgress = 0;
-                direction = 1;
+            let segDuration: number;
+            if (kind === 'walk') {
+                segDuration = Math.min(remaining, randBetween(random, 0.8, 1.8));
+            } else if (kind === 'sneak') {
+                segDuration = Math.min(remaining, randBetween(random, 0.6, 1.2));
+            } else if (kind === 'sprint') {
+                segDuration = Math.min(remaining, randBetween(random, 0.5, 1.0));
+            } else {
+                segDuration = Math.min(remaining, randBetween(random, 0.3, 0.6));
             }
-            progressEnd = targetProgress;
-        } else {
-            progressEnd = currentProgress;
+            segDuration = Math.max(segDuration, 0.1);
+
+            // Speed weights: sprint fast, walk normal, sneak slow, idle 0
+            const speedWeight =
+                kind === 'sprint' ? 1.6
+                : kind === 'sneak' ? 0.6
+                : kind === 'idle' ? 0
+                : 1.0;
+
+            moveSegs.push({ kind, duration: segDuration, speedWeight });
+            moveCursor += segDuration;
         }
 
-        segments.push({
-            kind,
-            startSec: cursor,
-            endSec: cursor + segDuration,
-            progressStart: currentProgress,
-            progressEnd,
-        });
+        // Calculate total weighted time (for distributing progress proportionally)
+        const totalWeightedTime = moveSegs.reduce(
+            (sum, s) => sum + s.duration * s.speedWeight, 0,
+        );
 
-        currentProgress = progressEnd;
-        cursor += segDuration;
-    }
+        // Assign progress proportionally so total = 1.0
+        let progress = 0;
+        for (const seg of moveSegs) {
+            const progressShare = totalWeightedTime > 0
+                ? (seg.duration * seg.speedWeight) / totalWeightedTime
+                : 0;
+            const progressEnd = Math.min(progress + progressShare, 1.0);
 
-    // Ensure the cat returns to progress 0 for seamless loop.
-    // If the last segment ends away from the start, insert a walk-back segment.
-    if (currentProgress > 0.01) {
-        const lastSeg = segments[segments.length - 1];
-        const returnDistance = currentProgress * Math.max(1, route.length - 1);
-        const returnDuration = returnDistance / CAT_WALK_SPEED;
-        // Steal time from the last segment if needed, or extend slightly
-        const availableTime = durationSec - cursor;
-        if (availableTime > 0.05) {
-            const walkBackDuration = Math.min(availableTime, returnDuration);
-            const actualProgress = (CAT_WALK_SPEED * walkBackDuration) / Math.max(1, route.length - 1);
-            const endProgress = Math.max(0, currentProgress - actualProgress);
             segments.push({
-                kind: 'walk',
+                kind: seg.kind,
                 startSec: cursor,
-                endSec: cursor + walkBackDuration,
-                progressStart: currentProgress,
-                progressEnd: endProgress,
+                endSec: cursor + seg.duration,
+                progressStart: progress,
+                progressEnd,
             });
-            cursor += walkBackDuration;
-            currentProgress = endProgress;
-        } else if (lastSeg.kind === 'sit' || lastSeg.kind === 'idle' || lastSeg.kind === 'lie') {
-            // Shorten last stationary segment to make room for return walk
-            const shrinkBy = Math.min(lastSeg.endSec - lastSeg.startSec - 0.1, returnDuration);
-            if (shrinkBy > 0.1) {
-                const newEndSec = lastSeg.endSec - shrinkBy;
-                // Replace the last segment with a shortened copy
-                segments[segments.length - 1] = {
-                    ...lastSeg,
-                    endSec: newEndSec,
-                };
-                const walkStart = newEndSec;
-                const walkBackDuration = shrinkBy;
-                const actualProgress = (CAT_WALK_SPEED * walkBackDuration) / Math.max(1, route.length - 1);
-                const endProgress = Math.max(0, currentProgress - actualProgress);
-                segments.push({
-                    kind: 'walk',
-                    startSec: walkStart,
-                    endSec: walkStart + walkBackDuration,
-                    progressStart: currentProgress,
-                    progressEnd: endProgress,
-                });
-                currentProgress = endProgress;
-            }
+            progress = progressEnd;
+            cursor += seg.duration;
+        }
+
+        // Ensure last segment ends exactly at 1.0
+        if (segments.length > 0 && progress < 0.999) {
+            const last = segments[segments.length - 1];
+            segments[segments.length - 1] = { ...last, progressEnd: 1.0 };
         }
     }
 
@@ -258,14 +291,14 @@ export const buildCatPopulationPlans = (
     const pickIndex = hashString(`cat:${island.id}:${island.cells.length}`) % topCandidates.length;
     const spawnCell = topCandidates[pickIndex].cell;
 
-    // 10-cell route for compact movement
-    const maxRouteDistance = 10;
+    // 25-cell circular route (start = end for seamless loop)
+    const maxRouteCells = 25;
     const directionOffset = hashString(`cat:dir:${island.id}`) % 4;
-    const route = chooseWalkPath(
+    const route = buildCircularRoute(
         island.cells,
         spawnCell,
         directionOffset,
-        maxRouteDistance,
+        maxRouteCells,
     );
 
     const loopPlan = buildCatLoopPlan(

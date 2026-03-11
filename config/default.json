@@ -10,7 +10,7 @@
   "emitHtml": true,
   "baseName": "profile-minecraft",
   "gif": {
-    "durationSec": 5,
+    "durationSec": 8,
     "fps": 10
   }
 }

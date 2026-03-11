@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: RenderConfig = {
     baseName: 'profile-minecraft',
     outputDir: 'profile',
     gif: {
-        durationSec: 5,
+        durationSec: 8,
         fps: 10,
     },
 };
