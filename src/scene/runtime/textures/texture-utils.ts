@@ -70,6 +70,7 @@ export const loadSceneTextures = async (
         dirtTexture,
         waterTopTexture,
         waterSideTexture,
+        catTexture,
     ] = await Promise.all([
         loadTexture(textureLoader, assets.sheepTexturePath),
         loadTexture(textureLoader, assets.sheepFurTexturePath),
@@ -90,6 +91,7 @@ export const loadSceneTextures = async (
         loadTexture(textureLoader, assets.dirtTexturePath),
         loadTexture(textureLoader, assets.waterTopTexturePath),
         loadTexture(textureLoader, assets.waterSideTexturePath),
+        loadTexture(textureLoader, assets.catTexturePath),
     ]);
 
     return {
@@ -112,5 +114,6 @@ export const loadSceneTextures = async (
         dirtTexture,
         waterTopTexture,
         waterSideTexture,
+        catTexture,
     };
 };

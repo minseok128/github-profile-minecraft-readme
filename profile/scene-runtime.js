@@ -18742,10 +18742,10 @@ function setValueV4ui(gl, v) {
 }
 function setValueT1(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
   let emptyTexture2D;
   if (this.type === gl.SAMPLER_2D_SHADOW) {
@@ -18754,34 +18754,34 @@ function setValueT1(gl, v, textures) {
   } else {
     emptyTexture2D = emptyTexture;
   }
-  textures.setTexture2D(v || emptyTexture2D, unit2);
+  textures.setTexture2D(v || emptyTexture2D, unit3);
 }
 function setValueT3D1(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
-  textures.setTexture3D(v || empty3dTexture, unit2);
+  textures.setTexture3D(v || empty3dTexture, unit3);
 }
 function setValueT6(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
-  textures.setTextureCube(v || emptyCubeTexture, unit2);
+  textures.setTextureCube(v || emptyCubeTexture, unit3);
 }
 function setValueT2DArray1(gl, v, textures) {
   const cache = this.cache;
-  const unit2 = textures.allocateTextureUnit();
-  if (cache[0] !== unit2) {
-    gl.uniform1i(this.addr, unit2);
-    cache[0] = unit2;
+  const unit3 = textures.allocateTextureUnit();
+  if (cache[0] !== unit3) {
+    gl.uniform1i(this.addr, unit3);
+    cache[0] = unit3;
   }
-  textures.setTexture2DArray(v || emptyArrayTexture, unit2);
+  textures.setTexture2DArray(v || emptyArrayTexture, unit3);
 }
 function getSingularSetter(type) {
   switch (type) {
@@ -26592,6 +26592,213 @@ var buildSheepRuntime = ({
   };
 };
 
+// src/scene/runtime/cat/constants.ts
+var unit2 = 1 / 16;
+var CAT_WALK_GAIT_FREQUENCY = 8.5;
+var CAT_WALK_LEG_AMPLITUDE_DEG = 22;
+var CAT_WALK_TAIL1_ROT = MathUtils.degToRad(-45);
+var CAT_SIT_BODY_DROP = 1 * unit2;
+var CAT_SIT_HEAD_DROP = 1.25 * unit2;
+var CAT_LIE_BODY_DROP = 4.5 * unit2;
+var CAT_SNEAK_BODY_DROP = 1 * unit2;
+var CAT_SNEAK_HEAD_DROP = 1 * unit2;
+var CAT_SNEAK_TAIL2_AMPLITUDE_DEG = 27 * 0.5;
+var CAT_SPRINT_LEG_AMPLITUDE_DEG = 32;
+var CAT_SPRINT_TAIL2_AMPLITUDE_DEG = 18 * 0.8;
+var CAT_SPRINT_BR_PHASE_OFFSET = MathUtils.degToRad(17.19);
+var CAT_SPRINT_FL_PHASE_OFFSET = MathUtils.degToRad(197.19);
+
+// src/scene/runtime/cat/model.ts
+var createCatMaterial = (map) => {
+  map.minFilter = NearestFilter;
+  map.magFilter = NearestFilter;
+  map.colorSpace = SRGBColorSpace;
+  return new MeshStandardMaterial({
+    map,
+    roughness: 0.92,
+    metalness: 0,
+    transparent: true,
+    alphaTest: 0.08
+  });
+};
+var buildCat = (material, targetHeight) => {
+  const root = new Group();
+  const legLength = 6 * unit2;
+  const legOffsets = [
+    { x: -1 * unit2, z: -3 * unit2, uv: [40, 0] },
+    // FL
+    { x: 1 * unit2, z: -3 * unit2, uv: [40, 0] },
+    // FR
+    { x: -1 * unit2, z: 3 * unit2, uv: [8, 13] },
+    // BL
+    { x: 1 * unit2, z: 3 * unit2, uv: [8, 13] }
+    // BR
+  ];
+  const legPivotRaw = legOffsets.map(({ x, z, uv }) => {
+    const pivot = new Group();
+    pivot.position.set(x, legLength, z);
+    const leg = makeTexturedBox([2, 6, 2], uv, material, 64, 32);
+    leg.position.y = -3 * unit2;
+    pivot.add(leg);
+    root.add(pivot);
+    return pivot;
+  });
+  const legPivots = legPivotRaw;
+  const bodyGroup = new Group();
+  bodyGroup.position.y = legLength + 2 * unit2;
+  bodyGroup.rotation.x = -Math.PI / 2;
+  root.add(bodyGroup);
+  const body = makeTexturedBox([4, 8, 6], [20, 0], material, 64, 32);
+  bodyGroup.add(body);
+  const headPivot = new Group();
+  headPivot.position.set(0, legLength + 4 * unit2, -5 * unit2);
+  root.add(headPivot);
+  const head = makeTexturedBox([5, 4, 5], [0, 0], material, 64, 32);
+  headPivot.add(head);
+  const tail1Pivot = new Group();
+  tail1Pivot.position.set(0, legLength + 4 * unit2, 5 * unit2);
+  tail1Pivot.rotation.x = Math.PI / 3;
+  root.add(tail1Pivot);
+  const tail1 = makeTexturedBox([1, 5, 1], [0, 15], material, 64, 32);
+  tail1.position.y = 2.5 * unit2;
+  tail1Pivot.add(tail1);
+  const tail2Pivot = new Group();
+  tail2Pivot.position.y = 5 * unit2;
+  tail1Pivot.add(tail2Pivot);
+  const tail2 = makeTexturedBox([1, 5, 1], [0, 15], material, 64, 32);
+  tail2.position.y = 2.5 * unit2;
+  tail2Pivot.add(tail2);
+  const bounds = new Box3().setFromObject(root);
+  const size = bounds.getSize(new Vector3());
+  root.scale.setScalar(targetHeight / size.y);
+  return { root, legPivots, bodyGroup, headPivot, tail1Pivot, tail2Pivot };
+};
+var createCatInstance = (scene, catTexture, targetHeight) => {
+  const material = createCatMaterial(catTexture);
+  const cat = buildCat(material, targetHeight);
+  const shadow = new Mesh(
+    new CircleGeometry(0.4, 24),
+    new MeshBasicMaterial({
+      color: "#000000",
+      transparent: true,
+      opacity: 0.16
+    })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  scene.add(cat.root);
+  scene.add(shadow);
+  return { ...cat, shadow };
+};
+
+// src/scene/runtime/cat/index.ts
+var routeCellToVec3 = (cell) => new Vector3(cell.week, cell.worldHeight + 0.01, cell.dayOfWeek);
+var degToRad2 = MathUtils.degToRad;
+var buildCatRuntime = ({
+  scene,
+  sceneData,
+  gifDurationSec,
+  textures
+}) => {
+  const loopDurationSec = Math.max(gifDurationSec, 1e-3);
+  const catInstances = sceneData.showCat ? sceneData.catPlans.map((plan, catIndex) => {
+    const route = plan.route.map(routeCellToVec3);
+    return {
+      ...createCatInstance(
+        scene,
+        textures.catTexture,
+        sceneData.catTargetHeight
+      ),
+      route,
+      routeMetrics: buildRouteMetrics(route),
+      loopPlan: plan.loopPlan,
+      gaitPhaseOffset: Math.PI / 2 + plan.loopPlan.phaseOffsetSec * 4.7 + catIndex * 0.93,
+      catIndex,
+      routeIndex: 0,
+      state: "lie"
+    };
+  }) : [];
+  const legBaseY = 6 * unit2;
+  const bodyBaseY = legBaseY + 2 * unit2;
+  const headBaseY = legBaseY + 4 * unit2;
+  const headBaseZ = -5 * unit2;
+  const walkAmplitude = degToRad2(CAT_WALK_LEG_AMPLITUDE_DEG);
+  const sprintAmplitude = degToRad2(CAT_SPRINT_LEG_AMPLITUDE_DEG);
+  const applyAtTime = (sceneTimeSec) => {
+    catInstances.forEach((cat) => {
+      const cycleSec = 6;
+      const phase = sceneTimeSec % cycleSec;
+      let walkBlend;
+      let progress;
+      if (phase < 1) {
+        walkBlend = 0;
+        progress = 0;
+      } else if (phase < 3) {
+        walkBlend = 1;
+        const walkT = (phase - 1) / 2;
+        progress = walkT * (1 / Math.max(1, cat.route.length - 1));
+      } else if (phase < 4) {
+        walkBlend = 0;
+        progress = 1 / Math.max(1, cat.route.length - 1);
+      } else {
+        walkBlend = 1;
+        const walkT = (phase - 4) / 2;
+        const oneCell = 1 / Math.max(1, cat.route.length - 1);
+        progress = oneCell * (1 - walkT);
+      }
+      if (phase >= 0.7 && phase < 1) {
+        walkBlend = (phase - 0.7) / 0.3;
+      } else if (phase >= 2.7 && phase < 3) {
+        walkBlend = 1 - (phase - 2.7) / 0.3;
+      } else if (phase >= 3.7 && phase < 4) {
+        walkBlend = (phase - 3.7) / 0.3;
+      } else if (phase >= 5.7 && phase < 6) {
+        walkBlend = 1 - (phase - 5.7) / 0.3;
+      }
+      walkBlend = walkBlend * walkBlend * (3 - 2 * walkBlend);
+      const routeSample = sampleRouteAtProgress(
+        cat.routeMetrics,
+        progress
+      );
+      cat.root.position.copy(routeSample.position);
+      if (routeSample.direction.lengthSq() > 1e-6) {
+        cat.root.rotation.y = Math.atan2(
+          routeSample.direction.x,
+          routeSample.direction.z
+        ) + Math.PI;
+      }
+      cat.shadow.position.set(
+        routeSample.position.x,
+        0.03,
+        routeSample.position.z
+      );
+      const walkDist = routeSample.distance;
+      const gaitPhase = Math.PI / 2 + walkDist * CAT_WALK_GAIT_FREQUENCY;
+      const swing = Math.cos(gaitPhase) * walkAmplitude * walkBlend;
+      cat.legPivots[0].rotation.x = swing;
+      cat.legPivots[1].rotation.x = -swing;
+      cat.legPivots[2].rotation.x = -swing;
+      cat.legPivots[3].rotation.x = swing;
+      cat.legPivots[0].rotation.z = 0;
+      cat.legPivots[1].rotation.z = 0;
+      cat.legPivots[2].rotation.z = 0;
+      cat.legPivots[3].rotation.z = 0;
+      const walkBob = Math.abs(Math.sin(gaitPhase)) * 0.05 * walkBlend;
+      cat.bodyGroup.position.y = bodyBaseY + walkBob;
+      cat.bodyGroup.rotation.x = -Math.PI / 2;
+      cat.bodyGroup.rotation.z = 0;
+      const headNod = Math.sin(gaitPhase * 0.5) * 0.04 * walkBlend;
+      cat.headPivot.position.set(0, headBaseY + headNod, headBaseZ);
+      cat.headPivot.rotation.x = 0;
+      cat.headPivot.rotation.y = 0;
+      cat.tail1Pivot.rotation.z = Math.sin(gaitPhase * 1.3) * degToRad2(15) * walkBlend;
+      cat.tail2Pivot.rotation.z = Math.sin(gaitPhase * 1.3 + 0.5) * degToRad2(20) * walkBlend;
+      cat.state = walkBlend > 0.5 ? "walk" : "idle";
+      cat.routeIndex = routeSample.routeIndex;
+    });
+  };
+  return { catInstances, applyAtTime };
+};
+
 // src/scene/runtime/terrain/flora.ts
 var MINECRAFT_FLOWER_BASE_SCALE = 0.84;
 var MINECRAFT_FLOWER_SCALE_VARIANCE = 0.12;
@@ -26817,7 +27024,8 @@ var loadSceneTextures = async (assets) => {
     snowTexture,
     dirtTexture,
     waterTopTexture,
-    waterSideTexture
+    waterSideTexture,
+    catTexture
   ] = await Promise.all([
     loadTexture(textureLoader, assets.sheepTexturePath),
     loadTexture(textureLoader, assets.sheepFurTexturePath),
@@ -26837,7 +27045,8 @@ var loadSceneTextures = async (assets) => {
     loadTexture(textureLoader, assets.snowTexturePath),
     loadTexture(textureLoader, assets.dirtTexturePath),
     loadTexture(textureLoader, assets.waterTopTexturePath),
-    loadTexture(textureLoader, assets.waterSideTexturePath)
+    loadTexture(textureLoader, assets.waterSideTexturePath),
+    loadTexture(textureLoader, assets.catTexturePath)
   ]);
   return {
     sheepBaseTexture,
@@ -26858,7 +27067,8 @@ var loadSceneTextures = async (assets) => {
     snowTexture,
     dirtTexture,
     waterTopTexture,
-    waterSideTexture
+    waterSideTexture,
+    catTexture
   };
 };
 
@@ -27382,6 +27592,12 @@ var start = async () => {
     gifDurationSec: payload.gifDurationSec,
     textures
   });
+  const catRuntime = buildCatRuntime({
+    scene,
+    sceneData: payload.sceneData,
+    gifDurationSec: payload.gifDurationSec,
+    textures
+  });
   const contentBounds = terrain.contentBounds.clone();
   sheepRuntime.sheepInstances.forEach((sheepInstance) => {
     sheepInstance.route.forEach((point) => {
@@ -27393,6 +27609,20 @@ var start = async () => {
           point.x + 0.45,
           point.y + payload.sceneData.sheepTargetHeight,
           point.z + 0.45
+        )
+      );
+    });
+  });
+  catRuntime.catInstances.forEach((catInstance) => {
+    catInstance.route.forEach((point) => {
+      contentBounds.expandByPoint(
+        new Vector3(point.x - 0.35, point.y, point.z - 0.35)
+      );
+      contentBounds.expandByPoint(
+        new Vector3(
+          point.x + 0.35,
+          point.y + payload.sceneData.catTargetHeight,
+          point.z + 0.35
         )
       );
     });
@@ -27430,6 +27660,7 @@ var start = async () => {
   };
   const renderSceneAtTime = (timeSec) => {
     sheepRuntime.applyAtTime(timeSec);
+    catRuntime.applyAtTime(timeSec);
     renderer.render(scene, camera);
     updateDebugState();
   };

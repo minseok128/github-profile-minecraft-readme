@@ -5,6 +5,7 @@ import {
     updateCameraFrustum,
 } from '../camera/labels.js';
 import { buildSheepRuntime } from '../sheep/index.js';
+import { buildCatRuntime } from '../cat/index.js';
 import { buildTerrainAndFlora } from '../terrain/flora.js';
 import { createTerrainTextureContext } from '../textures/seasonal.js';
 import { loadSceneTextures } from '../textures/texture-utils.js';
@@ -45,6 +46,12 @@ const start = async (): Promise<void> => {
         gifDurationSec: payload.gifDurationSec,
         textures,
     });
+    const catRuntime = buildCatRuntime({
+        scene,
+        sceneData: payload.sceneData,
+        gifDurationSec: payload.gifDurationSec,
+        textures,
+    });
 
     const contentBounds = terrain.contentBounds.clone();
     sheepRuntime.sheepInstances.forEach((sheepInstance) => {
@@ -57,6 +64,20 @@ const start = async (): Promise<void> => {
                     point.x + 0.45,
                     point.y + payload.sceneData.sheepTargetHeight,
                     point.z + 0.45,
+                ),
+            );
+        });
+    });
+    catRuntime.catInstances.forEach((catInstance) => {
+        catInstance.route.forEach((point) => {
+            contentBounds.expandByPoint(
+                new THREE.Vector3(point.x - 0.35, point.y, point.z - 0.35),
+            );
+            contentBounds.expandByPoint(
+                new THREE.Vector3(
+                    point.x + 0.35,
+                    point.y + payload.sceneData.catTargetHeight,
+                    point.z + 0.35,
                 ),
             );
         });
@@ -98,6 +119,7 @@ const start = async (): Promise<void> => {
 
     const renderSceneAtTime = (timeSec: number): void => {
         sheepRuntime.applyAtTime(timeSec);
+        catRuntime.applyAtTime(timeSec);
         renderer.render(scene, camera);
         updateDebugState();
     };

@@ -19,6 +19,7 @@ import type {
     SceneData,
     SceneRuntimeAssets,
 } from './runtime/types.js';
+import { buildCatPopulationPlans } from './cat/planner.js';
 import { buildSheepPopulationPlans } from './sheep/planner.js';
 
 const escapeHtml = (text: string): string =>
@@ -30,6 +31,7 @@ const escapeHtml = (text: string): string =>
         .replaceAll("'", '&#39;');
 
 const SHEEP_TARGET_HEIGHT_BLOCKS = 1.3;
+const CAT_TARGET_HEIGHT_BLOCKS = 1.1;
 const CAL_HEIGHT_DIVISOR = 20;
 const CAL_HEIGHT_MULTIPLIER = 144;
 const CAL_HEIGHT_BASE_OFFSET = 3;
@@ -268,6 +270,7 @@ const buildSceneRuntimeAssets = (
     dirtTexturePath: joinAssetUrl(assetUrls.assetBaseUrl, 'dirt.png'),
     waterTopTexturePath: joinAssetUrl(assetUrls.assetBaseUrl, 'water_top.png'),
     waterSideTexturePath: joinAssetUrl(assetUrls.assetBaseUrl, 'water_side.png'),
+    catTexturePath: joinAssetUrl(assetUrls.assetBaseUrl, 'cat.png'),
 });
 
 const encodeBootstrapPayload = (payload: SceneBootstrapPayload): string =>
@@ -301,6 +304,9 @@ const buildSceneData = (
         sheepPlans: config.showSheep
             ? buildSheepPopulationPlans(calendarMetrics, config.gif.durationSec)
             : [],
+        catPlans: buildCatPopulationPlans(calendarMetrics, config.gif.durationSec),
+        showCat: true,
+        catTargetHeight: CAT_TARGET_HEIGHT_BLOCKS,
         blossomCoverStops: KOREAN_BLOSSOM_COVER_STOPS,
         leafLitterCoverStops: KOREAN_LEAF_LITTER_COVER_STOPS,
         springFlowerCoverStops: KOREAN_SPRING_FLOWER_COVER_STOPS,
