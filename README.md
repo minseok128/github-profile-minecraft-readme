@@ -72,12 +72,12 @@ GITHUB_TOKEN=your_token npm run render -- --username your-github-id --output-dir
 다른 레포에서 이 이미지를 참조하려면 공개 저장소 기준 raw URL을 사용하면 됩니다.
 
 ```md
-![Minecraft contribution world](https://raw.githubusercontent.com/minseok128/github-profile-minecraft-readme/main/profile/profile-minecraft.gif)
+![Minecraft contribution world](https://raw.githubusercontent.com/cozy-hn/github-profile-minecraft-readme/main/profile/profile-minecraft.gif)
 ```
 
 ## Config
 
-기본 설정 파일: [config/default.json](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/config/default.json)
+기본 설정 파일: [config/default.json](/Users/cozy-hn/github-profile-minecraft-readme/config/default.json)
 
 주요 설정:
 
@@ -97,19 +97,19 @@ npm run typecheck
 
 ## GitHub Actions
 
-예제 워크플로: [.github/workflows/render-profile.yml](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/.github/workflows/render-profile.yml)
+예제 워크플로: [.github/workflows/render-profile.yml](/Users/cozy-hn/github-profile-minecraft-readme/.github/workflows/render-profile.yml)
 
 포함된 워크플로는 매일 한 번 렌더링을 실행하고, `profile/` 변경사항이 있으면 자동으로 커밋합니다.
 
 ## Project Structure
 
-- [src/cli.ts](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/cli.ts): CLI entry
-- [src/github](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/github): GitHub 데이터 수집 및 집계
-- [src/scene](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/scene): scene payload 생성 및 browser runtime
-- [src/render](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/src/render): Playwright 캡처와 export
+- [src/cli.ts](/Users/cozy-hn/github-profile-minecraft-readme/src/cli.ts): CLI entry
+- [src/github](/Users/cozy-hn/github-profile-minecraft-readme/src/github): GitHub 데이터 수집 및 집계
+- [src/scene](/Users/cozy-hn/github-profile-minecraft-readme/src/scene): scene payload 생성 및 browser runtime
+- [src/render](/Users/cozy-hn/github-profile-minecraft-readme/src/render): Playwright 캡처와 export
 
 ## License
 
-MIT. See [LICENSE](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/LICENSE).
+MIT. See [LICENSE](/Users/cozy-hn/github-profile-minecraft-readme/LICENSE).
 
-The MIT license applies to the original source code in this repository. See [ASSET_NOTICE.md](/Users/minseok128/Desktop/goinfre/github-profile-minecraft-readme/ASSET_NOTICE.md) for third-party asset and output usage notes.
+The MIT license applies to the original source code in this repository. See [ASSET_NOTICE.md](/Users/cozy-hn/github-profile-minecraft-readme/ASSET_NOTICE.md) for third-party asset and output usage notes.
