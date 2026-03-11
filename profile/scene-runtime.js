@@ -27015,7 +27015,7 @@ var toDayOfYear = (year, month, day) => {
   const leapOffset = isLeapYear(year) && month > 2 ? 1 : 0;
   return monthOffsets[month - 1] + day + leapOffset;
 };
-var getInterpolatedSeasonalAmount = (isoDate, stops) => {
+var findSeasonalBracket = (isoDate, stops, getValue) => {
   const [yearText, monthText, dayText] = isoDate.split("-");
   const year = Number(yearText);
   const month = Number(monthText);
@@ -27024,17 +27024,17 @@ var getInterpolatedSeasonalAmount = (isoDate, stops) => {
   const daysInYear = isLeapYear(year) ? 366 : 365;
   const yearlyStops = stops.map((stop) => ({
     day: toDayOfYear(year, stop.month, stop.day),
-    amount: stop.amount
+    value: getValue(stop)
   })).sort((left, right) => left.day - right.day);
   const extendedStops = [
     {
       day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
-      amount: yearlyStops[yearlyStops.length - 1].amount
+      value: yearlyStops[yearlyStops.length - 1].value
     },
     ...yearlyStops,
     {
       day: yearlyStops[0].day + daysInYear,
-      amount: yearlyStops[0].amount
+      value: yearlyStops[0].value
     }
   ];
   let leftStop = extendedStops[0];
@@ -27050,47 +27050,23 @@ var getInterpolatedSeasonalAmount = (isoDate, stops) => {
   }
   const range = Math.max(1, rightStop.day - leftStop.day);
   const t = Math.max(0, Math.min(1, (dayOfYear - leftStop.day) / range));
-  return leftStop.amount + (rightStop.amount - leftStop.amount) * t;
+  return { t, leftValue: leftStop.value, rightValue: rightStop.value };
+};
+var getInterpolatedSeasonalAmount = (isoDate, stops) => {
+  const { t, leftValue, rightValue } = findSeasonalBracket(
+    isoDate,
+    stops,
+    (stop) => stop.amount
+  );
+  return leftValue + (rightValue - leftValue) * t;
 };
 var getSeasonalGrassTint = (sceneData, isoDate, contributionLevel) => {
-  const [yearText, monthText, dayText] = isoDate.split("-");
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const dayOfYear = toDayOfYear(year, month, day);
-  const daysInYear = isLeapYear(year) ? 366 : 365;
-  const yearlyStops = sceneData.seasonalGrassStops.map((stop) => ({
-    day: toDayOfYear(year, stop.month, stop.day),
-    color: stop.color
-  })).sort((left, right) => left.day - right.day);
-  const extendedStops = [
-    {
-      day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
-      color: yearlyStops[yearlyStops.length - 1].color
-    },
-    ...yearlyStops,
-    {
-      day: yearlyStops[0].day + daysInYear,
-      color: yearlyStops[0].color
-    }
-  ];
-  let leftStop = extendedStops[0];
-  let rightStop = extendedStops[1];
-  for (let index = 0; index < extendedStops.length - 1; index += 1) {
-    const left = extendedStops[index];
-    const right = extendedStops[index + 1];
-    if (dayOfYear >= left.day && dayOfYear < right.day) {
-      leftStop = left;
-      rightStop = right;
-      break;
-    }
-  }
-  const range = Math.max(1, rightStop.day - leftStop.day);
-  const seasonalColor = mixHexColors(
-    leftStop.color,
-    rightStop.color,
-    (dayOfYear - leftStop.day) / range
+  const { t, leftValue, rightValue } = findSeasonalBracket(
+    isoDate,
+    sceneData.seasonalGrassStops,
+    (stop) => stop.color
   );
+  const seasonalColor = mixHexColors(leftValue, rightValue, t);
   const contributionLift = [0, 0.015, 0.035, 0.06, 0.09][contributionLevel] ?? 0;
   return liftHex(seasonalColor, contributionLift);
 };
