@@ -22,6 +22,14 @@ import type {
 } from './runtime/types.js';
 import { buildSheepPopulationPlans } from './sheep-planner.js';
 
+const escapeHtml = (text: string): string =>
+    text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
 const SHEEP_TARGET_HEIGHT_BLOCKS = 1.3;
 
 export const SERVER_SCENE_ASSET_URLS: SceneAssetUrls = {
@@ -145,7 +153,7 @@ const createHudMarkup = (
 
     return `
   <div class="hud">
-    <div class="hud-title">${userSnapshot.username}'s Minecraft Contributions</div>
+    <div class="hud-title">${escapeHtml(userSnapshot.username)}'s Minecraft Contributions</div>
     <div class="hud-row"><strong>${formatThousands(
         userSnapshot.totalContributions,
     )}</strong> contributions</div>
