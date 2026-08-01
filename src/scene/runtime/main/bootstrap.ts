@@ -35,7 +35,7 @@ const start = async (): Promise<void> => {
     const renderer = createRenderer(mountElement, isTransparent);
     const camera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 240);
     const isoDirection = new THREE.Vector3(1, 1, 1).normalize();
-    const cameraFitPadding = isTransparent ? 1.005 : 1.04;
+    const cameraFitPadding = 1.04;
 
     createLighting(scene);
     const ground = createGround(scene, isTransparent);
