@@ -2,7 +2,7 @@ import type {
     GrassWorldCell,
     SheepLoopPlan,
     SheepSpawnPlan,
-} from '../../types.js';
+} from '../types.js';
 import { hashString, mulberry32 } from '../../utils.js';
 import {
     SHEEP_WALK_SPEED_BLOCKS_PER_SEC,
@@ -23,7 +23,9 @@ import {
     clamp,
 } from './islands.js';
 
-const buildRouteProgressStops = (route: Array<GrassWorldCell>): Array<number> => {
+const buildRouteProgressStops = (
+    route: Array<GrassWorldCell>,
+): Array<number> => {
     if (route.length <= 1) {
         return [0];
     }
@@ -91,7 +93,9 @@ const distributeDurations = (
 ): Array<number> => {
     const safeWeights = weights.map((weight) => Math.max(weight, 1e-3));
     const totalWeight = safeWeights.reduce((sum, weight) => sum + weight, 0);
-    return safeWeights.map((weight) => (totalDurationSec * weight) / totalWeight);
+    return safeWeights.map(
+        (weight) => (totalDurationSec * weight) / totalWeight,
+    );
 };
 
 const buildLoopPlan = (
@@ -152,13 +156,11 @@ const buildLoopPlan = (
         random,
     );
     const firstPauseProgress =
-        routeProgressStops[firstPauseIndex] ??
-        (pauseCount === 2 ? 0.34 : 0.5);
+        routeProgressStops[firstPauseIndex] ?? (pauseCount === 2 ? 0.34 : 0.5);
 
-    let secondPauseIndex = segmentCount - 1;
     let secondPauseProgress = 1;
     if (pauseCount === 2) {
-        secondPauseIndex = pickIndexInFractionRange(
+        const secondPauseIndex = pickIndexInFractionRange(
             segmentCount,
             0.58,
             0.86,
@@ -219,14 +221,11 @@ const buildLoopPlan = (
     }
 
     const [walkToFirstPauseSec, walkToSecondPauseSec, walkHomeSec] =
-        distributeDurations(
-        totalWalkDurationSec,
-        [
+        distributeDurations(totalWalkDurationSec, [
             firstPauseProgress,
             secondPauseProgress - firstPauseProgress,
             1 - secondPauseProgress,
-        ],
-    );
+        ]);
     const walkToFirstPauseEndSec = walkToFirstPauseSec;
     const firstPauseEndSec = walkToFirstPauseEndSec + firstPauseDurationSec;
     const walkToSecondPauseEndSec = firstPauseEndSec + walkToSecondPauseSec;
@@ -284,7 +283,10 @@ export const buildSheepPopulationPlans = (
         SHEEP_WALK_SPEED_BLOCKS_PER_SEC *
         Math.max(0.5, loopDurationSec - MIN_LOOP_PAUSE_SEC);
     const sheepSlots = findGrassIslands(cells).flatMap((island) => {
-        const sheepCount = Math.min(MAX_SHEEP_PER_ISLAND, Math.floor(island.cells.length / CELLS_PER_SHEEP));
+        const sheepCount = Math.min(
+            MAX_SHEEP_PER_ISLAND,
+            Math.floor(island.cells.length / CELLS_PER_SHEEP),
+        );
         if (sheepCount <= 0) {
             return [];
         }

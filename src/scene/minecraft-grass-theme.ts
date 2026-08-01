@@ -40,41 +40,44 @@ export interface SeasonalGroundOverlayStop {
     amount: number;
 }
 
-export const KOREAN_BLOSSOM_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
-    { month: 3, day: 10, amount: 0 },
-    { month: 3, day: 25, amount: 0.2 },
-    { month: 4, day: 5, amount: 0.4 },
-    { month: 4, day: 15, amount: 0.28 },
-    { month: 4, day: 25, amount: 0.1 },
-    { month: 5, day: 5, amount: 0 },
-] as const;
+export const KOREAN_BLOSSOM_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> =
+    [
+        { month: 3, day: 10, amount: 0 },
+        { month: 3, day: 25, amount: 0.2 },
+        { month: 4, day: 5, amount: 0.4 },
+        { month: 4, day: 15, amount: 0.28 },
+        { month: 4, day: 25, amount: 0.1 },
+        { month: 5, day: 5, amount: 0 },
+    ] as const;
 
-export const KOREAN_SPRING_FLOWER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
-    { month: 3, day: 15, amount: 0 },
-    { month: 3, day: 28, amount: 0.08 },
-    { month: 4, day: 8, amount: 0.16 },
-    { month: 4, day: 20, amount: 0.12 },
-    { month: 5, day: 8, amount: 0.06 },
-    { month: 5, day: 20, amount: 0 },
-] as const;
+export const KOREAN_SPRING_FLOWER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> =
+    [
+        { month: 3, day: 15, amount: 0 },
+        { month: 3, day: 28, amount: 0.08 },
+        { month: 4, day: 8, amount: 0.16 },
+        { month: 4, day: 20, amount: 0.12 },
+        { month: 5, day: 8, amount: 0.06 },
+        { month: 5, day: 20, amount: 0 },
+    ] as const;
 
-export const KOREAN_LEAF_LITTER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
-    { month: 9, day: 20, amount: 0 },
-    { month: 10, day: 10, amount: 0.08 },
-    { month: 10, day: 25, amount: 0.18 },
-    { month: 11, day: 10, amount: 0.28 },
-    { month: 11, day: 25, amount: 0.2 },
-    { month: 12, day: 8, amount: 0.06 },
-    { month: 12, day: 20, amount: 0 },
-] as const;
+export const KOREAN_LEAF_LITTER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> =
+    [
+        { month: 9, day: 20, amount: 0 },
+        { month: 10, day: 10, amount: 0.08 },
+        { month: 10, day: 25, amount: 0.18 },
+        { month: 11, day: 10, amount: 0.28 },
+        { month: 11, day: 25, amount: 0.2 },
+        { month: 12, day: 8, amount: 0.06 },
+        { month: 12, day: 20, amount: 0 },
+    ] as const;
 
-export const KOREAN_SUMMER_FLOWER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> = [
-    { month: 6, day: 1, amount: 0 },
-    { month: 6, day: 15, amount: 0.1 },
-    { month: 7, day: 5, amount: 0.16 },
-    { month: 7, day: 25, amount: 0.22 },
-    { month: 8, day: 20, amount: 0.14 },
-    { month: 9, day: 5, amount: 0.04 },
-    { month: 9, day: 20, amount: 0 },
-] as const;
-
+export const KOREAN_SUMMER_FLOWER_COVER_STOPS: ReadonlyArray<SeasonalGroundOverlayStop> =
+    [
+        { month: 6, day: 1, amount: 0 },
+        { month: 6, day: 15, amount: 0.1 },
+        { month: 7, day: 5, amount: 0.16 },
+        { month: 7, day: 25, amount: 0.22 },
+        { month: 8, day: 20, amount: 0.14 },
+        { month: 9, day: 5, amount: 0.04 },
+        { month: 9, day: 20, amount: 0 },
+    ] as const;

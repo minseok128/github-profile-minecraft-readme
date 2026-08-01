@@ -9,7 +9,9 @@ export const parseBootstrapPayload = (): SceneBootstrapPayload => {
     if (!(payloadElement instanceof HTMLScriptElement)) {
         throw new Error('Scene bootstrap payload element is missing.');
     }
-    return JSON.parse(payloadElement.textContent ?? '') as SceneBootstrapPayload;
+    return JSON.parse(
+        payloadElement.textContent ?? '',
+    ) as SceneBootstrapPayload;
 };
 
 export const getMountElement = (mountElementId: string): HTMLElement => {
@@ -83,11 +85,11 @@ export const buildSceneDebugState = (
     camera: THREE.OrthographicCamera,
     blockCount: number,
     floraCount: number,
-    sheepCount: number,
+    entityCounts: Record<string, number>,
 ): SceneDebugState => ({
     blockCount,
     floraCount,
-    sheepCount,
+    entityCounts,
     camera: {
         left: camera.left,
         right: camera.right,

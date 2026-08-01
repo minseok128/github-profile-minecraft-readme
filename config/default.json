@@ -1,16 +1,30 @@
 {
-  "weeks": 53,
-  "width": 1200,
-  "height": 892,
-  "background": "transparent",
-  "showHud": false,
-  "showSheep": true,
-  "createPng": true,
-  "createGif": true,
-  "emitHtml": true,
-  "baseName": "profile-minecraft",
-  "gif": {
-    "durationSec": 5,
-    "fps": 10
-  }
+    "version": 2,
+    "profile": {
+        "source": "github",
+        "period": {
+            "mode": "trailing",
+            "days": 365
+        }
+    },
+    "scene": {
+        "weeks": 53,
+        "background": "transparent",
+        "hud": false,
+        "theme": "korean-seasonal",
+        "creatures": ["sheep"]
+    },
+    "capture": {
+        "width": 1200,
+        "height": 892,
+        "formats": ["png", "gif", "html"],
+        "gif": {
+            "durationSec": 5,
+            "fps": 10
+        }
+    },
+    "output": {
+        "directory": "profile",
+        "baseName": "profile-minecraft"
+    }
 }

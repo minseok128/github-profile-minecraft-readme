@@ -1,10 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { findGrassIslands, buildSheepPopulationPlans } from '../../scene/sheep/planner.js';
+import {
+    findGrassIslands,
+    buildSheepPopulationPlans,
+} from '../../scene/sheep/planner.js';
 import { MINECRAFT_SHEEP_COLORS } from '../../scene/sheep/colors.js';
-import type { GrassWorldCell } from '../../types.js';
+import type { GrassWorldCell } from '../../scene/types.js';
+import type { ContributionLevel } from '../../profile/types.js';
 
-const makeCell = (week: number, dayOfWeek: number, contributionLevel = 1, worldHeight = 2): GrassWorldCell => ({
-    week, dayOfWeek, contributionLevel, worldHeight,
+const makeCell = (
+    week: number,
+    dayOfWeek: number,
+    contributionLevel: ContributionLevel = 1,
+    worldHeight = 2,
+): GrassWorldCell => ({
+    week,
+    dayOfWeek,
+    contributionLevel,
+    worldHeight,
 });
 
 describe('MINECRAFT_SHEEP_COLORS', () => {
@@ -13,7 +25,7 @@ describe('MINECRAFT_SHEEP_COLORS', () => {
     });
 
     it('includes orange and white', () => {
-        const names = MINECRAFT_SHEEP_COLORS.map(c => c.name);
+        const names = MINECRAFT_SHEEP_COLORS.map((c) => c.name);
         expect(names).toContain('orange');
         expect(names).toContain('white');
     });
@@ -36,9 +48,7 @@ describe('findGrassIslands', () => {
     });
 
     it('finds a single island from adjacent cells', () => {
-        const cells = [
-            makeCell(0, 0), makeCell(1, 0), makeCell(2, 0),
-        ];
+        const cells = [makeCell(0, 0), makeCell(1, 0), makeCell(2, 0)];
         const islands = findGrassIslands(cells);
         expect(islands).toHaveLength(1);
         expect(islands[0].cells).toHaveLength(3);
@@ -46,8 +56,10 @@ describe('findGrassIslands', () => {
 
     it('finds multiple disconnected islands', () => {
         const cells = [
-            makeCell(0, 0), makeCell(1, 0),  // island 1
-            makeCell(5, 5), makeCell(6, 5),  // island 2 (far away)
+            makeCell(0, 0),
+            makeCell(1, 0), // island 1
+            makeCell(5, 5),
+            makeCell(6, 5), // island 2 (far away)
         ];
         const islands = findGrassIslands(cells);
         expect(islands).toHaveLength(2);
@@ -55,29 +67,24 @@ describe('findGrassIslands', () => {
 
     it('considers diagonal cells as separate islands', () => {
         const cells = [
-            makeCell(0, 0),  // island 1
-            makeCell(1, 1),  // island 2 (diagonal = not adjacent)
+            makeCell(0, 0), // island 1
+            makeCell(1, 1), // island 2 (diagonal = not adjacent)
         ];
         const islands = findGrassIslands(cells);
         expect(islands).toHaveLength(2);
     });
 
     it('finds L-shaped island as single island', () => {
-        const cells = [
-            makeCell(0, 0), makeCell(1, 0), makeCell(1, 1),
-        ];
+        const cells = [makeCell(0, 0), makeCell(1, 0), makeCell(1, 1)];
         const islands = findGrassIslands(cells);
         expect(islands).toHaveLength(1);
         expect(islands[0].cells).toHaveLength(3);
     });
 
     it('assigns unique island IDs', () => {
-        const cells = [
-            makeCell(0, 0),
-            makeCell(5, 5),
-        ];
+        const cells = [makeCell(0, 0), makeCell(5, 5)];
         const islands = findGrassIslands(cells);
-        const ids = islands.map(i => i.id);
+        const ids = islands.map((i) => i.id);
         expect(new Set(ids).size).toBe(ids.length);
     });
 });
@@ -139,7 +146,9 @@ describe('buildSheepPopulationPlans', () => {
             }
         }
         const plans = buildSheepPopulationPlans(cells, 5);
-        const orangeCount = plans.filter(p => p.colorName === 'orange').length;
+        const orangeCount = plans.filter(
+            (p) => p.colorName === 'orange',
+        ).length;
         expect(orangeCount).toBe(1);
     });
 });

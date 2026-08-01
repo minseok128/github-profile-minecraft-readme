@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { toIsoDate, toFixed, formatThousands, trimLastWeeks, hashString, mulberry32 } from '../utils.js';
+import {
+    toIsoDate,
+    toFixed,
+    formatThousands,
+    trimLastWeeks,
+    hashString,
+    mulberry32,
+} from '../utils.js';
 
 describe('toIsoDate', () => {
     it('formats a UTC date as YYYY-MM-DD', () => {
@@ -71,7 +78,7 @@ describe('hashString', () => {
     it('returns a non-negative 32-bit integer', () => {
         const hash = hashString('test');
         expect(hash).toBeGreaterThanOrEqual(0);
-        expect(hash).toBeLessThanOrEqual(0xFFFFFFFF);
+        expect(hash).toBeLessThanOrEqual(0xffffffff);
         expect(Number.isInteger(hash)).toBe(true);
     });
 

@@ -43,35 +43,52 @@ describe('snow cover stops', () => {
 
     it('starts and ends with zero coverage', () => {
         expect(KOREAN_SNOW_COVER_STOPS[0].amount).toBe(0);
-        expect(KOREAN_SNOW_COVER_STOPS[KOREAN_SNOW_COVER_STOPS.length - 1].amount).toBe(0);
+        expect(
+            KOREAN_SNOW_COVER_STOPS[KOREAN_SNOW_COVER_STOPS.length - 1].amount,
+        ).toBe(0);
     });
 });
 
 const allOverlayStops = [
     { name: 'blossom', stops: KOREAN_BLOSSOM_COVER_STOPS, expectedLength: 6 },
-    { name: 'spring flowers', stops: KOREAN_SPRING_FLOWER_COVER_STOPS, expectedLength: 6 },
-    { name: 'leaf litter', stops: KOREAN_LEAF_LITTER_COVER_STOPS, expectedLength: 7 },
-    { name: 'summer flowers', stops: KOREAN_SUMMER_FLOWER_COVER_STOPS, expectedLength: 7 },
+    {
+        name: 'spring flowers',
+        stops: KOREAN_SPRING_FLOWER_COVER_STOPS,
+        expectedLength: 6,
+    },
+    {
+        name: 'leaf litter',
+        stops: KOREAN_LEAF_LITTER_COVER_STOPS,
+        expectedLength: 7,
+    },
+    {
+        name: 'summer flowers',
+        stops: KOREAN_SUMMER_FLOWER_COVER_STOPS,
+        expectedLength: 7,
+    },
 ];
 
-describe.each(allOverlayStops)('$name cover stops', ({ stops, expectedLength }) => {
-    it(`has ${expectedLength} stops`, () => {
-        expect(stops).toHaveLength(expectedLength);
-    });
+describe.each(allOverlayStops)(
+    '$name cover stops',
+    ({ stops, expectedLength }) => {
+        it(`has ${expectedLength} stops`, () => {
+            expect(stops).toHaveLength(expectedLength);
+        });
 
-    it('all amounts are in [0, 1]', () => {
-        for (const stop of stops) {
-            expect(stop.amount).toBeGreaterThanOrEqual(0);
-            expect(stop.amount).toBeLessThanOrEqual(1);
-        }
-    });
+        it('all amounts are in [0, 1]', () => {
+            for (const stop of stops) {
+                expect(stop.amount).toBeGreaterThanOrEqual(0);
+                expect(stop.amount).toBeLessThanOrEqual(1);
+            }
+        });
 
-    it('all stops have valid month/day', () => {
-        for (const stop of stops) {
-            expect(stop.month).toBeGreaterThanOrEqual(1);
-            expect(stop.month).toBeLessThanOrEqual(12);
-            expect(stop.day).toBeGreaterThanOrEqual(1);
-            expect(stop.day).toBeLessThanOrEqual(31);
-        }
-    });
-});
+        it('all stops have valid month/day', () => {
+            for (const stop of stops) {
+                expect(stop.month).toBeGreaterThanOrEqual(1);
+                expect(stop.month).toBeLessThanOrEqual(12);
+                expect(stop.day).toBeGreaterThanOrEqual(1);
+                expect(stop.day).toBeLessThanOrEqual(31);
+            }
+        });
+    },
+);

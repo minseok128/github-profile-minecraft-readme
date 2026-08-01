@@ -1,8 +1,9 @@
-import type { GrassWorldCell } from '../../types.js';
+import type { GrassWorldCell } from '../types.js';
 import { ISLAND_DIRECTIONS, MAX_WALK_STEPS } from './constants.js';
 
-export const toCellKey = (cell: Pick<GrassWorldCell, 'week' | 'dayOfWeek'>): string =>
-    `${cell.week},${cell.dayOfWeek}`;
+export const toCellKey = (
+    cell: Pick<GrassWorldCell, 'week' | 'dayOfWeek'>,
+): string => `${cell.week},${cell.dayOfWeek}`;
 
 export const clamp = (value: number, min: number, max: number): number =>
     Math.min(max, Math.max(min, value));
@@ -76,7 +77,8 @@ export const chooseWalkPath = (
         const candidates = rotateDirections(currentDirection)
             .map((direction, directionIndex) => ({
                 directionIndex:
-                    (directionOffset + directionIndex) % ISLAND_DIRECTIONS.length,
+                    (directionOffset + directionIndex) %
+                    ISLAND_DIRECTIONS.length,
                 cell: cellMap.get(
                     `${current.week + direction[0]},${
                         current.dayOfWeek + direction[1]
@@ -124,10 +126,12 @@ export const selectSpawnCells = (
     count: number,
 ): Array<GrassWorldCell> => {
     const sortedCells = [...islandCells].sort(
-        (left, right) => left.week - right.week || left.dayOfWeek - right.dayOfWeek,
+        (left, right) =>
+            left.week - right.week || left.dayOfWeek - right.dayOfWeek,
     );
     const avgWeek =
-        sortedCells.reduce((sum, cell) => sum + cell.week, 0) / sortedCells.length;
+        sortedCells.reduce((sum, cell) => sum + cell.week, 0) /
+        sortedCells.length;
     const avgDay =
         sortedCells.reduce((sum, cell) => sum + cell.dayOfWeek, 0) /
         sortedCells.length;
@@ -148,7 +152,12 @@ export const selectSpawnCells = (
 
     while (selected.length < count) {
         const nextCell = sortedCells.reduce((best, cell) => {
-            if (selected.some((selectedCell) => toCellKey(selectedCell) === toCellKey(cell))) {
+            if (
+                selected.some(
+                    (selectedCell) =>
+                        toCellKey(selectedCell) === toCellKey(cell),
+                )
+            ) {
                 return best;
             }
             const cellMinDistance = selected.reduce(
@@ -196,7 +205,8 @@ export const partitionIslandCells = (
         let bestDistance = distanceMaps[0].get(key) ?? Number.POSITIVE_INFINITY;
 
         for (let owner = 1; owner < distanceMaps.length; owner += 1) {
-            const distance = distanceMaps[owner].get(key) ?? Number.POSITIVE_INFINITY;
+            const distance =
+                distanceMaps[owner].get(key) ?? Number.POSITIVE_INFINITY;
             if (distance < bestDistance) {
                 bestDistance = distance;
                 bestOwner = owner;
@@ -220,14 +230,14 @@ export const findGrassIslands = (
     cells: Array<GrassWorldCell>,
 ): Array<{ id: number; cells: Array<GrassWorldCell> }> => {
     const grassCells = cells.filter((cell) => cell.contributionLevel > 0);
-    const remaining = new Map(grassCells.map((cell) => [toCellKey(cell), cell]));
+    const remaining = new Map(
+        grassCells.map((cell) => [toCellKey(cell), cell]),
+    );
     const islands: Array<{ id: number; cells: Array<GrassWorldCell> }> = [];
     let islandId = 0;
 
     while (remaining.size > 0) {
-        const firstEntry = remaining.entries().next().value as
-            | [string, GrassWorldCell]
-            | undefined;
+        const firstEntry = remaining.entries().next().value;
         if (!firstEntry) {
             break;
         }

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { hexToRgb, rgbToHex, mixHexColors, liftHex } from '../../../scene/runtime/textures/color-math.js';
+import {
+    hexToRgb,
+    rgbToHex,
+    mixHexColors,
+    liftHex,
+} from '../../../scene/runtime/textures/color-math.js';
 
 describe('hexToRgb', () => {
     it('converts red', () => {

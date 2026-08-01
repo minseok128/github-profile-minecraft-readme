@@ -8,12 +8,15 @@ export const buildSceneRuntimeBundle = async (
     projectRoot: string,
 ): Promise<string> => {
     if (!cachedSceneRuntimeBundle) {
-        cachedSceneRuntimeBundle = (async () => {
+        cachedSceneRuntimeBundle = (async (): Promise<string> => {
             const result = await build({
                 absWorkingDir: projectRoot,
                 bundle: true,
                 entryPoints: [
-                    path.join(projectRoot, 'src/scene/runtime/main/bootstrap.ts'),
+                    path.join(
+                        projectRoot,
+                        'src/scene/runtime/main/bootstrap.ts',
+                    ),
                 ],
                 format: 'esm',
                 legalComments: 'none',

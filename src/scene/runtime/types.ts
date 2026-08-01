@@ -1,9 +1,7 @@
 import type { Texture } from 'three';
-import type {
-    CalendarMetric,
-    RenderConfig,
-    SheepSpawnPlan,
-} from '../../types.js';
+import type { SceneAssetUrls } from '../assets.js';
+import type { ThemeId } from '../registry-ids.js';
+import type { CalendarMetric, SceneEntityBatch } from '../types.js';
 
 export interface SceneMonthGuideEntry {
     week: number;
@@ -11,75 +9,25 @@ export interface SceneMonthGuideEntry {
     detailLabel: string;
 }
 
-export interface SeasonalAmountStop {
-    month: number;
-    day: number;
-    amount: number;
-}
-
-export interface SeasonalColorStop {
-    month: number;
-    day: number;
-    color: string;
-}
-
 export interface SceneData {
-    username: string;
-    totalContributions: number;
-    period: string;
-    background: RenderConfig['background'];
-    showHud: boolean;
-    showSheep: boolean;
-    sheepTargetHeight: number;
+    version: 1;
+    background: 'sky' | 'transparent';
+    theme: ThemeId;
+    assets: SceneAssetUrls;
     calendarMetrics: Array<CalendarMetric>;
     monthGuideEntries: Array<SceneMonthGuideEntry>;
-    sheepPlans: Array<SheepSpawnPlan>;
-    blossomCoverStops: ReadonlyArray<SeasonalAmountStop>;
-    leafLitterCoverStops: ReadonlyArray<SeasonalAmountStop>;
-    springFlowerCoverStops: ReadonlyArray<SeasonalAmountStop>;
-    seasonalGrassStops: ReadonlyArray<SeasonalColorStop>;
-    snowCoverStops: ReadonlyArray<SeasonalAmountStop>;
-    summerFlowerCoverStops: ReadonlyArray<SeasonalAmountStop>;
-}
-
-export interface SceneAssetUrls {
-    runtimeScriptPath: string;
-    assetBaseUrl: string;
-    vendorBaseUrl: string;
-}
-
-export interface SceneRuntimeAssets {
-    sheepTexturePath: string;
-    sheepFurTexturePath: string;
-    grassTopTexturePath: string;
-    grassSideTexturePath: string;
-    grassSideOverlayTexturePath: string;
-    grassSnowTexturePath: string;
-    pinkPetalsTexturePath: string;
-    leafLitterTexturePath: string;
-    poppyTexturePath: string;
-    dandelionTexturePath: string;
-    cornflowerTexturePath: string;
-    blueOrchidTexturePath: string;
-    azureBluetTexturePath: string;
-    pinkTulipTexturePath: string;
-    whiteTulipTexturePath: string;
-    snowTexturePath: string;
-    dirtTexturePath: string;
-    waterTopTexturePath: string;
-    waterSideTexturePath: string;
+    entities: Array<SceneEntityBatch>;
 }
 
 export interface SceneBootstrapPayload {
     mountElementId: string;
     gifDurationSec: number;
     sceneData: SceneData;
-    assets: SceneRuntimeAssets;
 }
 
 export interface LoadedSceneTextures {
-    sheepBaseTexture: Texture;
-    sheepFurTexture: Texture;
+    sheepBaseTexture?: Texture;
+    sheepFurTexture?: Texture;
     grassTopTexture: Texture;
     grassSideTexture: Texture;
     grassSideOverlayTexture: Texture;
@@ -122,7 +70,7 @@ export interface SheepStateSnapshot {
 export interface SceneDebugState {
     blockCount: number;
     floraCount: number;
-    sheepCount: number;
+    entityCounts: Record<string, number>;
     camera: {
         left: number;
         right: number;
@@ -132,11 +80,22 @@ export interface SceneDebugState {
     };
 }
 
+export type SceneEntityStateSnapshot = SheepStateSnapshot;
+
+export type SceneRuntimeStatus =
+    | { state: 'loading' }
+    | { state: 'ready' }
+    | { state: 'error'; message: string };
+
+export interface SceneRuntimeBridge {
+    setTime: (timeSec: number) => void;
+    getState: (timeSec: number) => Array<SceneEntityStateSnapshot>;
+    getDebugState: () => SceneDebugState;
+    resume: () => void;
+    dispose: () => void;
+}
+
 export interface SceneRuntimeWindow extends Window {
-    __setSceneTime?: (timeSec: number) => void;
-    __getSceneState?: (timeSec: number) => Array<SheepStateSnapshot>;
-    __resumeScene?: () => void;
-    __PROFILE_SCENE_READY?: boolean;
-    __PROFILE_SCENE_LOOP_DURATION?: number;
-    __PROFILE_SCENE_DEBUG?: SceneDebugState;
+    __PROFILE_SCENE_BRIDGE?: SceneRuntimeBridge;
+    __PROFILE_SCENE_STATUS?: SceneRuntimeStatus;
 }

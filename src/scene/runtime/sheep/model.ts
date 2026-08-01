@@ -11,7 +11,9 @@ export interface SheepModel {
     shadow: THREE.Mesh;
 }
 
-export const createSheepMaterial = (map: THREE.Texture): THREE.MeshStandardMaterial =>
+export const createSheepMaterial = (
+    map: THREE.Texture,
+): THREE.MeshStandardMaterial =>
     new THREE.MeshStandardMaterial({
         map,
         roughness: 0.92,
@@ -38,7 +40,14 @@ export const setBedrockBoxUv = (
         bottom: [u + sz + sx, v, sx, sz],
     } as const;
 
-    const faceOrder = ['right', 'left', 'top', 'bottom', 'back', 'front'] as const;
+    const faceOrder = [
+        'right',
+        'left',
+        'top',
+        'bottom',
+        'back',
+        'front',
+    ] as const;
     const uvAttr = geometry.attributes.uv;
 
     faceOrder.forEach((face, faceIndex) => {
@@ -104,7 +113,11 @@ export const buildSheep = (
         const pivot = new THREE.Group();
         pivot.position.set(x, legLength, z);
 
-        const shearedLeg = makeTexturedBox([4, 12, 4], [0, 16], sheepBaseMaterial);
+        const shearedLeg = makeTexturedBox(
+            [4, 12, 4],
+            [0, 16],
+            sheepBaseMaterial,
+        );
         shearedLeg.position.y = -6 * unit;
         pivot.add(shearedLeg);
 
@@ -130,14 +143,11 @@ export const buildSheep = (
 
     bodyGroup.add(makeTexturedBox([8, 16, 6], [28, 8], sheepBaseMaterial));
     bodyGroup.add(
-        makeTexturedBox(
-            [8, 16, 6],
-            [28, 8],
-            sheepFurMaterial,
-            64,
-            32,
-            [11.5 / 8, 19.5 / 16, 9.5 / 6],
-        ),
+        makeTexturedBox([8, 16, 6], [28, 8], sheepFurMaterial, 64, 32, [
+            11.5 / 8,
+            19.5 / 16,
+            9.5 / 6,
+        ]),
     );
 
     const headPivot = new THREE.Group();

@@ -28,7 +28,10 @@ export const startStaticSceneServer = async (
                 'http://127.0.0.1:0',
             );
 
-            if (requestUrl.pathname === '/' || requestUrl.pathname === '/scene.html') {
+            if (
+                requestUrl.pathname === '/' ||
+                requestUrl.pathname === '/scene.html'
+            ) {
                 response.writeHead(200, {
                     'content-type': 'text/html; charset=utf-8',
                 });
@@ -46,13 +49,7 @@ export const startStaticSceneServer = async (
 
             let filePath: string | null = null;
             let allowedRoot: string | null = null;
-            if (requestUrl.pathname.startsWith('/vendor/')) {
-                allowedRoot = path.resolve(projectRoot, 'node_modules/three/build');
-                filePath = path.join(
-                    allowedRoot,
-                    requestUrl.pathname.replace('/vendor/', ''),
-                );
-            } else if (requestUrl.pathname.startsWith('/assets/')) {
+            if (requestUrl.pathname.startsWith('/assets/')) {
                 allowedRoot = path.resolve(projectRoot, 'assets');
                 filePath = path.join(
                     allowedRoot,
@@ -67,7 +64,10 @@ export const startStaticSceneServer = async (
             }
 
             const resolvedPath = path.resolve(filePath);
-            if (!resolvedPath.startsWith(allowedRoot + path.sep) && resolvedPath !== allowedRoot) {
+            if (
+                !resolvedPath.startsWith(allowedRoot + path.sep) &&
+                resolvedPath !== allowedRoot
+            ) {
                 response.writeHead(403);
                 response.end('Forbidden');
                 return;

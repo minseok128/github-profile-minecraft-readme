@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { SheepLoopPlan, SheepLoopSegment } from '../../../types.js';
+import type { SheepLoopPlan, SheepLoopSegment } from '../../types.js';
 
 export interface RouteMetrics {
     points: Array<THREE.Vector3>;
@@ -12,7 +12,10 @@ export interface DominantSegmentState {
     segment: SheepLoopSegment | null;
 }
 
-export const wrapLoopTime = (timeSec: number, loopDurationSec: number): number => {
+export const wrapLoopTime = (
+    timeSec: number,
+    loopDurationSec: number,
+): number => {
     const wrapped = timeSec % loopDurationSec;
     return wrapped < 0 ? wrapped + loopDurationSec : wrapped;
 };
@@ -22,7 +25,9 @@ export const smootherstep01 = (value: number): number => {
     return t * t * t * (t * (t * 6 - 15) + 10);
 };
 
-export const buildRouteMetrics = (points: Array<THREE.Vector3>): RouteMetrics => {
+export const buildRouteMetrics = (
+    points: Array<THREE.Vector3>,
+): RouteMetrics => {
     const cumulativeDistances = [0];
     for (let index = 1; index < points.length; index += 1) {
         cumulativeDistances.push(
@@ -69,7 +74,8 @@ export const sampleRouteAtProgress = (
     const targetDistance = routeMetrics.totalLength * clampedProgress;
 
     for (let index = 1; index < routeMetrics.points.length; index += 1) {
-        const segmentStartDistance = routeMetrics.cumulativeDistances[index - 1];
+        const segmentStartDistance =
+            routeMetrics.cumulativeDistances[index - 1];
         const segmentEndDistance = routeMetrics.cumulativeDistances[index];
         if (
             targetDistance > segmentEndDistance &&
@@ -131,7 +137,8 @@ const getSegmentMix = (
     const segmentDuration = Math.max(segment.endSec - segment.startSec, 1e-6);
     const fadeSec = Math.min(edgeSec, segmentDuration * 0.5);
     if (fadeSec <= 1e-6) {
-        return localTimeSec >= segment.startSec && localTimeSec <= segment.endSec
+        return localTimeSec >= segment.startSec &&
+            localTimeSec <= segment.endSec
             ? 1
             : 0;
     }

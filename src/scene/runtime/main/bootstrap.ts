@@ -1,14 +1,16 @@
 import * as THREE from 'three';
-import {
-    buildCalendarGuideMarkers,
-    fitCameraToBounds,
-    updateCameraFrustum,
-} from '../camera/labels.js';
-import { buildSheepRuntime } from '../sheep/index.js';
+import { fitCameraToBounds } from '../camera/bounds.js';
+import { updateCameraFrustum } from '../camera/frustum.js';
+import { buildCalendarGuideMarkers } from '../camera/guides.js';
+import { CREATURE_RUNTIMES } from '../creature-registry.js';
 import { buildTerrainAndFlora } from '../terrain/flora.js';
 import { createTerrainTextureContext } from '../textures/seasonal.js';
 import { loadSceneTextures } from '../textures/texture-utils.js';
-import type { SceneRuntimeWindow } from '../types.js';
+import type {
+    SceneDebugState,
+    SceneEntityStateSnapshot,
+    SceneRuntimeWindow,
+} from '../types.js';
 import {
     buildSceneDebugState,
     createGround,
@@ -21,6 +23,8 @@ import {
 const start = async (): Promise<void> => {
     const payload = parseBootstrapPayload();
     const runtimeWindow = window as SceneRuntimeWindow;
+    runtimeWindow.__PROFILE_SCENE_STATUS = { state: 'loading' };
+
     const isTransparent = payload.sceneData.background === 'transparent';
     const mountElement = getMountElement(payload.mountElementId);
     const scene = new THREE.Scene();
@@ -36,30 +40,30 @@ const start = async (): Promise<void> => {
     createLighting(scene);
     const ground = createGround(scene, isTransparent);
 
-    const textures = await loadSceneTextures(payload.assets);
-    const terrainTextures = createTerrainTextureContext(payload.sceneData, textures);
-    const terrain = buildTerrainAndFlora(scene, payload.sceneData, terrainTextures);
-    const sheepRuntime = buildSheepRuntime({
-        scene,
-        sceneData: payload.sceneData,
-        gifDurationSec: payload.gifDurationSec,
+    const textures = await loadSceneTextures(payload.sceneData.assets);
+    const terrainTextures = createTerrainTextureContext(
+        payload.sceneData,
         textures,
-    });
+    );
+    const terrain = buildTerrainAndFlora(
+        scene,
+        payload.sceneData,
+        terrainTextures,
+    );
+    const creatureRuntimes = payload.sceneData.entities.map((batch) =>
+        CREATURE_RUNTIMES[batch.kind](batch, {
+            scene,
+            gifDurationSec: payload.gifDurationSec,
+            textures,
+        }),
+    );
+    const entityBounds = creatureRuntimes.flatMap(
+        (runtime) => runtime.viewBounds,
+    );
 
     const contentBounds = terrain.contentBounds.clone();
-    sheepRuntime.sheepInstances.forEach((sheepInstance) => {
-        sheepInstance.route.forEach((point) => {
-            contentBounds.expandByPoint(
-                new THREE.Vector3(point.x - 0.45, point.y, point.z - 0.45),
-            );
-            contentBounds.expandByPoint(
-                new THREE.Vector3(
-                    point.x + 0.45,
-                    point.y + payload.sceneData.sheepTargetHeight,
-                    point.z + 0.45,
-                ),
-            );
-        });
+    entityBounds.forEach((bounds) => {
+        contentBounds.union(bounds);
     });
 
     fitCameraToBounds({
@@ -70,8 +74,7 @@ const start = async (): Promise<void> => {
         cameraFitPadding,
         blocks: terrain.blocks,
         floraDecorations: terrain.floraDecorations,
-        sheepInstances: sheepRuntime.sheepInstances,
-        sheepTargetHeight: payload.sceneData.sheepTargetHeight,
+        entityBounds,
         contentBounds,
     });
     updateCameraFrustum(camera, window.innerWidth, window.innerHeight);
@@ -86,52 +89,42 @@ const start = async (): Promise<void> => {
     let autoAnimate = true;
     let manualSceneTimeSec = 0;
     let animationTimeOffsetSec = 0;
+    let disposed = false;
+    let animationFrameId: number | undefined;
+    const entityCounts = Object.fromEntries(
+        creatureRuntimes.map((runtime) => [runtime.kind, runtime.entityCount]),
+    );
+    let debugState = buildSceneDebugState(
+        camera,
+        terrain.blocks.length,
+        terrain.floraDecorations.length,
+        entityCounts,
+    );
 
     const updateDebugState = (): void => {
-        runtimeWindow.__PROFILE_SCENE_DEBUG = buildSceneDebugState(
+        debugState = buildSceneDebugState(
             camera,
             terrain.blocks.length,
             terrain.floraDecorations.length,
-            sheepRuntime.sheepInstances.length,
+            entityCounts,
         );
     };
 
     const renderSceneAtTime = (timeSec: number): void => {
-        sheepRuntime.applyAtTime(timeSec);
+        creatureRuntimes.forEach((runtime) => runtime.applyAtTime(timeSec));
         renderer.render(scene, camera);
         updateDebugState();
     };
 
     const animate = (): void => {
-        if (!autoAnimate) {
+        if (!autoAnimate || disposed) {
             return;
         }
-
         renderSceneAtTime(clock.getElapsedTime() + animationTimeOffsetSec);
-        requestAnimationFrame(animate);
+        animationFrameId = requestAnimationFrame(animate);
     };
 
-    runtimeWindow.__setSceneTime = (timeSec: number) => {
-        autoAnimate = false;
-        manualSceneTimeSec = Math.max(0, timeSec);
-        renderSceneAtTime(manualSceneTimeSec);
-    };
-    runtimeWindow.__getSceneState = (timeSec: number) => {
-        autoAnimate = false;
-        manualSceneTimeSec = Math.max(0, timeSec);
-        renderSceneAtTime(manualSceneTimeSec);
-        return sheepRuntime.getStateSnapshot();
-    };
-    runtimeWindow.__PROFILE_SCENE_LOOP_DURATION = payload.gifDurationSec;
-    runtimeWindow.__resumeScene = () => {
-        if (!autoAnimate) {
-            autoAnimate = true;
-            animationTimeOffsetSec = manualSceneTimeSec - clock.getElapsedTime();
-            requestAnimationFrame(animate);
-        }
-    };
-
-    window.addEventListener('resize', () => {
+    const handleResize = (): void => {
         renderer.setSize(window.innerWidth, window.innerHeight);
         updateCameraFrustum(camera, window.innerWidth, window.innerHeight);
         renderSceneAtTime(
@@ -139,13 +132,52 @@ const start = async (): Promise<void> => {
                 ? clock.getElapsedTime() + animationTimeOffsetSec
                 : manualSceneTimeSec,
         );
-    });
+    };
+    window.addEventListener('resize', handleResize);
 
+    runtimeWindow.__PROFILE_SCENE_BRIDGE = {
+        setTime: (timeSec: number): void => {
+            autoAnimate = false;
+            manualSceneTimeSec = Math.max(0, timeSec);
+            renderSceneAtTime(manualSceneTimeSec);
+        },
+        getState: (timeSec: number): Array<SceneEntityStateSnapshot> => {
+            autoAnimate = false;
+            manualSceneTimeSec = Math.max(0, timeSec);
+            renderSceneAtTime(manualSceneTimeSec);
+            return creatureRuntimes.flatMap((runtime) =>
+                runtime.getStateSnapshot(),
+            );
+        },
+        getDebugState: (): SceneDebugState => debugState,
+        resume: (): void => {
+            if (!autoAnimate && !disposed) {
+                autoAnimate = true;
+                animationTimeOffsetSec =
+                    manualSceneTimeSec - clock.getElapsedTime();
+                animationFrameId = requestAnimationFrame(animate);
+            }
+        },
+        dispose: (): void => {
+            disposed = true;
+            autoAnimate = false;
+            if (animationFrameId !== undefined) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            window.removeEventListener('resize', handleResize);
+            renderer.dispose();
+        },
+    };
     renderSceneAtTime(0);
-    runtimeWindow.__PROFILE_SCENE_READY = true;
-    requestAnimationFrame(animate);
+    runtimeWindow.__PROFILE_SCENE_STATUS = { state: 'ready' };
+    animationFrameId = requestAnimationFrame(animate);
 };
 
 void start().catch((error: unknown) => {
+    const runtimeWindow = window as SceneRuntimeWindow;
+    runtimeWindow.__PROFILE_SCENE_STATUS = {
+        state: 'error',
+        message: error instanceof Error ? error.message : String(error),
+    };
     console.error(error);
 });
