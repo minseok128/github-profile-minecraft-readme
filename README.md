@@ -6,7 +6,7 @@ Render GitHub contribution data as a Minecraft-style Three.js scene and export R
 
 ## Preview
 
-![Minecraft contribution world](./profile/profile-minecraft.gif)
+![Minecraft contribution world](https://github.com/minseok128/github-profile-minecraft-readme/releases/download/profile-assets/profile-minecraft.gif)
 
 ## Requirements
 
@@ -63,17 +63,17 @@ npm run render -- --help
 
 ## Embedding in a README
 
-[profile/README-snippet.md](./profile/README-snippet.md):
+Generated `profile/README-snippet.md`:
 
 ```md
-![Minecraft contribution world](./profile/profile-minecraft.gif)
+![Minecraft contribution world](https://github.com/minseok128/github-profile-minecraft-readme/releases/download/profile-assets/profile-minecraft.gif)
 <sub>Unofficial fan project. Not approved by or associated with Mojang or Microsoft.</sub>
 ```
 
-Raw URL:
+Release asset URL for another repository:
 
 ```md
-![Minecraft contribution world](https://raw.githubusercontent.com/<owner>/<repo>/<branch>/profile/profile-minecraft.gif)
+![Minecraft contribution world](https://github.com/<owner>/<repo>/releases/download/profile-assets/profile-minecraft.gif)
 ```
 
 ## Configuration
@@ -99,6 +99,9 @@ Common settings:
 ## GitHub Actions
 
 [.github/workflows/render-profile.yml](./.github/workflows/render-profile.yml)
+
+The scheduled workflow replaces the assets attached to the fixed `profile-assets`
+release. Generated files are not committed to Git history.
 
 ## Project Structure
 
