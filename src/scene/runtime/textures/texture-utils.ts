@@ -1,12 +1,15 @@
 import * as THREE from 'three';
-import type { LoadedSceneTextures, SceneRuntimeAssets } from '../types.js';
+import type { SceneAssetUrls } from '../../assets.js';
+import type { LoadedSceneTextures } from '../types.js';
 
 type CanvasTextureImage = CanvasImageSource & {
     width: number;
     height: number;
 };
 
-export const get2dContext = (canvas: HTMLCanvasElement): CanvasRenderingContext2D => {
+export const get2dContext = (
+    canvas: HTMLCanvasElement,
+): CanvasRenderingContext2D => {
     const context = canvas.getContext('2d');
     if (!context) {
         throw new Error('Unable to acquire 2D canvas context.');
@@ -37,7 +40,9 @@ export const loadTexture = (
         );
     });
 
-export const createCanvasTexture = (canvas: HTMLCanvasElement): THREE.CanvasTexture => {
+export const createCanvasTexture = (
+    canvas: HTMLCanvasElement,
+): THREE.CanvasTexture => {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.magFilter = THREE.NearestFilter;
@@ -47,7 +52,7 @@ export const createCanvasTexture = (canvas: HTMLCanvasElement): THREE.CanvasText
 };
 
 export const loadSceneTextures = async (
-    assets: SceneRuntimeAssets,
+    assets: SceneAssetUrls,
 ): Promise<LoadedSceneTextures> => {
     const textureLoader = new THREE.TextureLoader();
     const [
@@ -71,25 +76,29 @@ export const loadSceneTextures = async (
         waterTopTexture,
         waterSideTexture,
     ] = await Promise.all([
-        loadTexture(textureLoader, assets.sheepTexturePath),
-        loadTexture(textureLoader, assets.sheepFurTexturePath),
-        loadTexture(textureLoader, assets.grassTopTexturePath),
-        loadTexture(textureLoader, assets.grassSideTexturePath),
-        loadTexture(textureLoader, assets.grassSideOverlayTexturePath),
-        loadTexture(textureLoader, assets.grassSnowTexturePath),
-        loadTexture(textureLoader, assets.pinkPetalsTexturePath),
-        loadTexture(textureLoader, assets.leafLitterTexturePath),
-        loadTexture(textureLoader, assets.poppyTexturePath),
-        loadTexture(textureLoader, assets.dandelionTexturePath),
-        loadTexture(textureLoader, assets.cornflowerTexturePath),
-        loadTexture(textureLoader, assets.blueOrchidTexturePath),
-        loadTexture(textureLoader, assets.azureBluetTexturePath),
-        loadTexture(textureLoader, assets.pinkTulipTexturePath),
-        loadTexture(textureLoader, assets.whiteTulipTexturePath),
-        loadTexture(textureLoader, assets.snowTexturePath),
-        loadTexture(textureLoader, assets.dirtTexturePath),
-        loadTexture(textureLoader, assets.waterTopTexturePath),
-        loadTexture(textureLoader, assets.waterSideTexturePath),
+        assets.sheepBase
+            ? loadTexture(textureLoader, assets.sheepBase)
+            : Promise.resolve(undefined),
+        assets.sheepFur
+            ? loadTexture(textureLoader, assets.sheepFur)
+            : Promise.resolve(undefined),
+        loadTexture(textureLoader, assets.grassTop),
+        loadTexture(textureLoader, assets.grassSide),
+        loadTexture(textureLoader, assets.grassSideOverlay),
+        loadTexture(textureLoader, assets.grassSnow),
+        loadTexture(textureLoader, assets.pinkPetals),
+        loadTexture(textureLoader, assets.leafLitter),
+        loadTexture(textureLoader, assets.poppy),
+        loadTexture(textureLoader, assets.dandelion),
+        loadTexture(textureLoader, assets.cornflower),
+        loadTexture(textureLoader, assets.blueOrchid),
+        loadTexture(textureLoader, assets.azureBluet),
+        loadTexture(textureLoader, assets.pinkTulip),
+        loadTexture(textureLoader, assets.whiteTulip),
+        loadTexture(textureLoader, assets.snow),
+        loadTexture(textureLoader, assets.dirt),
+        loadTexture(textureLoader, assets.waterTop),
+        loadTexture(textureLoader, assets.waterSide),
     ]);
 
     return {

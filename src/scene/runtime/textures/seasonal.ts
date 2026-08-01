@@ -1,11 +1,14 @@
 import * as THREE from 'three';
-import type { CalendarMetric } from '../../../types.js';
+import { hashUnitInterval } from '../../../shared/random.js';
+import type { CalendarMetric } from '../../types.js';
+import { THEMES } from '../../theme-registry.js';
 import type {
-    LoadedSceneTextures,
-    SceneData,
     SeasonalAmountStop,
-} from '../types.js';
+    ThemeDefinition,
+} from '../../theme-registry.js';
+import type { LoadedSceneTextures, SceneData } from '../types.js';
 import { liftHex, mixHexColors } from './color-math.js';
+import { getCyclicInterpolation } from './seasonal-math.js';
 import {
     createOverlayTopTexture,
     createPartialOverlayTopTexture,
@@ -14,125 +17,28 @@ import {
     createTintedTopTexture,
 } from './texture-builders.js';
 
-/**
- * FNV-1a hash returning a normalized float in [0, 1).
- *
- * A similar FNV-1a implementation exists in `src/utils.ts` that returns
- * a raw unsigned 32-bit integer instead. The two are intentionally separate:
- * this module runs in the browser bundle (esbuild), while `src/utils.ts`
- * imports Node-only modules (`node:fs/promises`, `node:path`).
- */
-export const hashString = (value: string): number => {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0) / 4294967296;
-};
-
-const isLeapYear = (year: number): boolean =>
-    year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-
-const toDayOfYear = (year: number, month: number, day: number): number => {
-    const monthOffsets = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    const leapOffset = isLeapYear(year) && month > 2 ? 1 : 0;
-    return monthOffsets[month - 1] + day + leapOffset;
-};
+export const hashString = hashUnitInterval;
 
 const getInterpolatedSeasonalAmount = (
     isoDate: string,
     stops: ReadonlyArray<SeasonalAmountStop>,
 ): number => {
-    const [yearText, monthText, dayText] = isoDate.split('-');
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const dayOfYear = toDayOfYear(year, month, day);
-    const daysInYear = isLeapYear(year) ? 366 : 365;
-    const yearlyStops = stops
-        .map((stop) => ({
-            day: toDayOfYear(year, stop.month, stop.day),
-            amount: stop.amount,
-        }))
-        .sort((left, right) => left.day - right.day);
-    const extendedStops = [
-        {
-            day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
-            amount: yearlyStops[yearlyStops.length - 1].amount,
-        },
-        ...yearlyStops,
-        {
-            day: yearlyStops[0].day + daysInYear,
-            amount: yearlyStops[0].amount,
-        },
-    ];
-
-    let leftStop = extendedStops[0];
-    let rightStop = extendedStops[1];
-    for (let index = 0; index < extendedStops.length - 1; index += 1) {
-        const left = extendedStops[index];
-        const right = extendedStops[index + 1];
-        if (dayOfYear >= left.day && dayOfYear < right.day) {
-            leftStop = left;
-            rightStop = right;
-            break;
-        }
-    }
-
-    const range = Math.max(1, rightStop.day - leftStop.day);
-    const t = Math.max(0, Math.min(1, (dayOfYear - leftStop.day) / range));
-    return leftStop.amount + (rightStop.amount - leftStop.amount) * t;
+    const { left, right, t } = getCyclicInterpolation(isoDate, stops);
+    return left.amount + (right.amount - left.amount) * t;
 };
 
 const getSeasonalGrassTint = (
-    sceneData: SceneData,
+    theme: ThemeDefinition,
     isoDate: string,
     contributionLevel: number,
 ): string => {
-    const [yearText, monthText, dayText] = isoDate.split('-');
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const dayOfYear = toDayOfYear(year, month, day);
-    const daysInYear = isLeapYear(year) ? 366 : 365;
-    const yearlyStops = sceneData.seasonalGrassStops
-        .map((stop) => ({
-            day: toDayOfYear(year, stop.month, stop.day),
-            color: stop.color,
-        }))
-        .sort((left, right) => left.day - right.day);
-    const extendedStops = [
-        {
-            day: yearlyStops[yearlyStops.length - 1].day - daysInYear,
-            color: yearlyStops[yearlyStops.length - 1].color,
-        },
-        ...yearlyStops,
-        {
-            day: yearlyStops[0].day + daysInYear,
-            color: yearlyStops[0].color,
-        },
-    ];
-
-    let leftStop = extendedStops[0];
-    let rightStop = extendedStops[1];
-    for (let index = 0; index < extendedStops.length - 1; index += 1) {
-        const left = extendedStops[index];
-        const right = extendedStops[index + 1];
-        if (dayOfYear >= left.day && dayOfYear < right.day) {
-            leftStop = left;
-            rightStop = right;
-            break;
-        }
-    }
-
-    const range = Math.max(1, rightStop.day - leftStop.day);
-    const seasonalColor = mixHexColors(
-        leftStop.color,
-        rightStop.color,
-        (dayOfYear - leftStop.day) / range,
+    const { left, right, t } = getCyclicInterpolation(
+        isoDate,
+        theme.seasonalGrassStops,
     );
-    const contributionLift = [0, 0.015, 0.035, 0.06, 0.09][contributionLevel] ?? 0;
+    const seasonalColor = mixHexColors(left.color, right.color, t);
+    const contributionLift =
+        [0, 0.015, 0.035, 0.06, 0.09][contributionLevel] ?? 0;
     return liftHex(seasonalColor, contributionLift);
 };
 
@@ -152,6 +58,7 @@ export const createTerrainTextureContext = (
     sceneData: SceneData,
     textures: LoadedSceneTextures,
 ): TerrainTextureContext => {
+    const theme = THEMES[sceneData.theme];
     const springFlowerTextures = [
         textures.pinkTulipTexture,
         textures.whiteTulipTexture,
@@ -235,15 +142,15 @@ export const createTerrainTextureContext = (
     ];
 
     const getSnowCoverage = (isoDate: string): number =>
-        getInterpolatedSeasonalAmount(isoDate, sceneData.snowCoverStops);
+        getInterpolatedSeasonalAmount(isoDate, theme.snowCoverStops);
     const getBlossomCoverage = (isoDate: string): number =>
-        getInterpolatedSeasonalAmount(isoDate, sceneData.blossomCoverStops);
+        getInterpolatedSeasonalAmount(isoDate, theme.blossomCoverStops);
     const getLeafLitterCoverage = (isoDate: string): number =>
-        getInterpolatedSeasonalAmount(isoDate, sceneData.leafLitterCoverStops);
+        getInterpolatedSeasonalAmount(isoDate, theme.leafLitterCoverStops);
     const getSpringFlowerCoverage = (isoDate: string): number =>
-        getInterpolatedSeasonalAmount(isoDate, sceneData.springFlowerCoverStops);
+        getInterpolatedSeasonalAmount(isoDate, theme.springFlowerCoverStops);
     const getSummerFlowerCoverage = (isoDate: string): number =>
-        getInterpolatedSeasonalAmount(isoDate, sceneData.summerFlowerCoverStops);
+        getInterpolatedSeasonalAmount(isoDate, theme.summerFlowerCoverStops);
     const selectedWaterKeys = new Set(
         sceneData.calendarMetrics
             .filter((cell) => cell.contributionLevel === 0)
@@ -255,15 +162,25 @@ export const createTerrainTextureContext = (
 
     const getWaterGeometryKey = (cell: CalendarMetric): string =>
         [
-            selectedWaterKeys.has(`${cell.week + 1}:${cell.dayOfWeek}`) ? '0' : '1',
-            selectedWaterKeys.has(`${cell.week - 1}:${cell.dayOfWeek}`) ? '0' : '1',
+            selectedWaterKeys.has(`${cell.week + 1}:${cell.dayOfWeek}`)
+                ? '0'
+                : '1',
+            selectedWaterKeys.has(`${cell.week - 1}:${cell.dayOfWeek}`)
+                ? '0'
+                : '1',
             '1',
             '1',
-            selectedWaterKeys.has(`${cell.week}:${cell.dayOfWeek + 1}`) ? '0' : '1',
-            selectedWaterKeys.has(`${cell.week}:${cell.dayOfWeek - 1}`) ? '0' : '1',
+            selectedWaterKeys.has(`${cell.week}:${cell.dayOfWeek + 1}`)
+                ? '0'
+                : '1',
+            selectedWaterKeys.has(`${cell.week}:${cell.dayOfWeek - 1}`)
+                ? '0'
+                : '1',
         ].join('');
 
-    const getWaterBlockGeometry = (cell: CalendarMetric): THREE.BufferGeometry => {
+    const getWaterBlockGeometry = (
+        cell: CalendarMetric,
+    ): THREE.BufferGeometry => {
         const key = getWaterGeometryKey(cell);
         const cachedGeometry = waterGeometryCache.get(key);
         if (cachedGeometry) {
@@ -273,10 +190,18 @@ export const createTerrainTextureContext = (
         const geometry = baseWaterGeometry.clone();
         const visibleFaces = key.split('').map((value) => value === '1');
         geometry.clearGroups();
-        for (let faceIndex = 0; faceIndex < baseWaterGeometry.groups.length; faceIndex += 1) {
+        for (
+            let faceIndex = 0;
+            faceIndex < baseWaterGeometry.groups.length;
+            faceIndex += 1
+        ) {
             const group = baseWaterGeometry.groups[faceIndex];
             if (visibleFaces[faceIndex]) {
-                geometry.addGroup(group.start, group.count, group.materialIndex);
+                geometry.addGroup(
+                    group.start,
+                    group.count,
+                    group.materialIndex,
+                );
             }
         }
         waterGeometryCache.set(key, geometry);
@@ -284,7 +209,9 @@ export const createTerrainTextureContext = (
     };
 
     const getBlockMaterials = (cell: CalendarMetric): Array<THREE.Material> => {
-        const isWaterCell = selectedWaterKeys.has(`${cell.week}:${cell.dayOfWeek}`);
+        const isWaterCell = selectedWaterKeys.has(
+            `${cell.week}:${cell.dayOfWeek}`,
+        );
         const cacheKey = `${cell.date}:${cell.contributionLevel}:${
             isWaterCell ? 'water' : 'land'
         }`;
@@ -294,7 +221,9 @@ export const createTerrainTextureContext = (
         }
 
         if (isWaterCell) {
-            const materials = waterMaterials.map((material) => material.clone());
+            const materials = waterMaterials.map((material) =>
+                material.clone(),
+            );
             blockMaterialCache.set(cacheKey, materials);
             return materials;
         }
@@ -305,7 +234,8 @@ export const createTerrainTextureContext = (
             const snowCoverage = getSnowCoverage(cell.date);
             const hasSnowCover =
                 snowCoverage > 0 &&
-                hashString(`${cell.date}:${cell.contributionLevel}`) < snowCoverage;
+                hashString(`${cell.date}:${cell.contributionLevel}`) <
+                    snowCoverage;
             if (hasSnowCover) {
                 topTexture = textures.snowTexture;
                 sideTexture = createStackedSideTexture(
@@ -315,11 +245,14 @@ export const createTerrainTextureContext = (
                 );
             } else {
                 const tintHex = getSeasonalGrassTint(
-                    sceneData,
+                    theme,
                     cell.date,
                     cell.contributionLevel,
                 );
-                topTexture = createTintedTopTexture(textures.grassTopTexture, tintHex);
+                topTexture = createTintedTopTexture(
+                    textures.grassTopTexture,
+                    tintHex,
+                );
                 sideTexture = createStackedSideTexture(
                     createTintedSideTexture(
                         textures.grassSideTexture,
@@ -346,8 +279,9 @@ export const createTerrainTextureContext = (
                 const leafLitterCoverage = getLeafLitterCoverage(cell.date);
                 const hasLeafLitter =
                     leafLitterCoverage > 0 &&
-                    hashString(`${cell.date}:leaf:${cell.week}:${cell.dayOfWeek}`) <
-                        leafLitterCoverage;
+                    hashString(
+                        `${cell.date}:leaf:${cell.week}:${cell.dayOfWeek}`,
+                    ) < leafLitterCoverage;
                 if (hasLeafLitter) {
                     topTexture = createPartialOverlayTopTexture(
                         topTexture,

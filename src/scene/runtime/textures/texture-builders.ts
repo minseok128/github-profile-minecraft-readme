@@ -1,5 +1,9 @@
 import * as THREE from 'three';
-import { createCanvasTexture, get2dContext, getTextureImage } from './texture-utils.js';
+import {
+    createCanvasTexture,
+    get2dContext,
+    getTextureImage,
+} from './texture-utils.js';
 
 export interface Rect {
     x: number;
@@ -78,7 +82,12 @@ export const createOverlayTopTexture = (
         overlayContext.drawImage(overlayImage, 0, 0);
         overlayContext.globalCompositeOperation = 'source-atop';
         overlayContext.fillStyle = tintHex;
-        overlayContext.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        overlayContext.fillRect(
+            0,
+            0,
+            overlayCanvas.width,
+            overlayCanvas.height,
+        );
         overlayContext.globalCompositeOperation = 'source-over';
         context.drawImage(overlayCanvas, 0, 0);
     } else {

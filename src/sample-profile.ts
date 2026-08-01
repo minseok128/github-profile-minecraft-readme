@@ -1,4 +1,7 @@
-import type { LanguageContribution, UserSnapshot } from './types.js';
+import type {
+    ContributionLevel,
+    ContributionProfile,
+} from './profile/types.js';
 import { hashString, mulberry32, toIsoDate } from './utils.js';
 
 /**
@@ -6,7 +9,7 @@ import { hashString, mulberry32, toIsoDate } from './utils.js';
  * @param contributionCount - The number of contributions
  * @returns A level from 0 (no contributions) to 4 (high activity)
  */
-const toContributionLevel = (contributionCount: number): number => {
+const toContributionLevel = (contributionCount: number): ContributionLevel => {
     if (contributionCount === 0) {
         return 0;
     }
@@ -30,24 +33,8 @@ const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
  * @param username - The GitHub username used as the seed source
  * @returns An array of language contributions with seeded randomized counts
  */
-const buildLanguageSamples = (username: string): Array<LanguageContribution> => {
-    const rng = mulberry32(hashString(`${username}:languages`));
-    const seeds = [
-        ['TypeScript', '#3178c6'],
-        ['GLSL', '#5686a5'],
-        ['Rust', '#dea584'],
-        ['Python', '#3572a5'],
-        ['C++', '#f34b7d'],
-    ] as const;
-    return seeds.map(([language, color], index) => ({
-        language,
-        color,
-        contributions: 40 + Math.floor(rng() * 70) + index * 9,
-    }));
-};
-
 /**
- * Creates a deterministic sample UserSnapshot for preview and testing purposes.
+ * Creates deterministic sample profile data for preview and testing purposes.
  * Uses FNV-1a hashing and Mulberry32 PRNG seeded by username for reproducible output.
  *
  * Contribution simulation strategy:
@@ -58,19 +45,31 @@ const buildLanguageSamples = (username: string): Array<LanguageContribution> => 
  * - Off days: Probabilistically reduced activity with weekend multipliers
  *
  * @param username - GitHub username to seed the deterministic generation
- * @returns A realistic sample UserSnapshot with 365 days of contribution data and language stats
+ * @returns A realistic sample contribution profile for the requested date window
  */
-export const createSampleProfile = (username: string): UserSnapshot => {
-    const today = new Date();
-    const start = new Date(
-        Date.UTC(
-            today.getUTCFullYear(),
-            today.getUTCMonth(),
-            today.getUTCDate() - 364,
-        ),
-    );
+export const createSampleProfileForWindow = (
+    username: string,
+    from: string,
+    to: string,
+): ContributionProfile => {
+    const start = new Date(from);
+    const end = new Date(to);
+    const dayCount =
+        Math.floor(
+            (Date.UTC(
+                end.getUTCFullYear(),
+                end.getUTCMonth(),
+                end.getUTCDate(),
+            ) -
+                Date.UTC(
+                    start.getUTCFullYear(),
+                    start.getUTCMonth(),
+                    start.getUTCDate(),
+                )) /
+                (24 * 60 * 60 * 1000),
+        ) + 1;
     const rng = mulberry32(hashString(`${username}:calendar`));
-    const calendar = [...Array<undefined>(365)].map((_, index) => {
+    const calendar = [...Array<undefined>(dayCount)].map((_, index) => {
         const date = new Date(start.getTime());
         date.setUTCDate(start.getUTCDate() + index);
 
@@ -115,7 +114,6 @@ export const createSampleProfile = (username: string): UserSnapshot => {
         };
     });
 
-    const languages = buildLanguageSamples(username);
     const totalContributions = calendar.reduce(
         (sum, day) => sum + day.contributionCount,
         0,
@@ -124,14 +122,22 @@ export const createSampleProfile = (username: string): UserSnapshot => {
     return {
         username,
         calendar,
-        languages,
         totalContributions,
-        totalCommitContributions: Math.floor(totalContributions * 0.72),
-        totalIssueContributions: Math.floor(totalContributions * 0.08),
-        totalPullRequestContributions: Math.floor(totalContributions * 0.11),
-        totalPullRequestReviewContributions: Math.floor(totalContributions * 0.06),
-        totalRepositoryContributions: Math.floor(totalContributions * 0.03),
-        totalForkCount: 38,
-        totalStargazerCount: 172,
     };
+};
+
+export const createSampleProfile = (
+    username: string,
+    asOf = new Date(),
+): ContributionProfile => {
+    const end = new Date(
+        Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
+    );
+    const start = new Date(end.getTime());
+    start.setUTCDate(start.getUTCDate() - 364);
+    return createSampleProfileForWindow(
+        username,
+        start.toISOString(),
+        `${end.toISOString().slice(0, 10)}T23:59:59.999Z`,
+    );
 };

@@ -2,12 +2,21 @@ import { describe, it, expect } from 'vitest';
 import { hashString as nodeHashString } from '../../../utils.js';
 import { hashString as browserHashString } from '../../../scene/runtime/textures/seasonal.js';
 
-const TEST_INPUTS = ['hello', 'test', '', 'github:calendar', 'user:languages', '2024-01-15:3'];
+const TEST_INPUTS = [
+    'hello',
+    'test',
+    '',
+    'github:calendar',
+    'user:languages',
+    '2024-01-15:3',
+];
 
 describe('hashString cross-validation', () => {
     it('browserHashString equals nodeHashString / 4294967296 for all inputs', () => {
         for (const input of TEST_INPUTS) {
-            expect(browserHashString(input)).toBe(nodeHashString(input) / 4294967296);
+            expect(browserHashString(input)).toBe(
+                nodeHashString(input) / 4294967296,
+            );
         }
     });
 
@@ -31,7 +40,7 @@ describe('hashString cross-validation', () => {
             const value = nodeHashString(input);
             expect(Number.isInteger(value)).toBe(true);
             expect(value).toBeGreaterThanOrEqual(0);
-            expect(value).toBeLessThanOrEqual(0xFFFFFFFF);
+            expect(value).toBeLessThanOrEqual(0xffffffff);
         }
     });
 });

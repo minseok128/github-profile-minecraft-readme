@@ -6,7 +6,7 @@ dist/
 .tmp/
 .cache/
 coverage/
-output/
+/output/
 .env.local
-profile/assets/
+/profile/assets/
 **/.omc

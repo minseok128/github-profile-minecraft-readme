@@ -1,65 +1,65 @@
 name: Render Profile Assets
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 0 * * *"
+    workflow_dispatch:
+    schedule:
+        - cron: '0 0 * * *'
 
 permissions:
-  contents: write
+    contents: write
 
 concurrency:
-  group: render-profile-assets
-  cancel-in-progress: true
+    group: render-profile-assets
+    cancel-in-progress: true
 
 jobs:
-  render:
-    runs-on: ubuntu-latest
+    render:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
 
-      - name: Install ffmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+            - name: Install ffmpeg
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y ffmpeg
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Typecheck
-        run: npx tsc --noEmit
+            - name: Check
+              run: npm run check
 
-      - name: Test
-        run: npx vitest run
+            - name: Install Chromium
+              run: npx playwright install --with-deps --no-shell chromium
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps --no-shell chromium
+            - name: Render profile assets
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  npm run render -- --username "${{ github.repository_owner }}" --output-dir output
 
-      - name: Render profile assets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm run render -- --username "${{ github.repository_owner }}" --output-dir output
+            - name: Verify public GIF asset
+              run: test -s output/profile-minecraft.gif
 
-      - name: Publish profile assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! gh release view profile-assets >/dev/null 2>&1; then
-            gh release create profile-assets \
-              --title "Profile assets" \
-              --notes "Automatically refreshed profile assets." \
-              --latest=false
-          fi
-          gh release upload profile-assets \
-            output/profile-minecraft.gif \
-            output/profile-minecraft.png \
-            --clobber
+            - name: Publish profile assets
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  if ! gh release view profile-assets >/dev/null 2>&1; then
+                    gh release create profile-assets \
+                      --title "Profile assets" \
+                      --notes "Automatically refreshed profile assets." \
+                      --latest=false
+                  fi
+                  gh release upload profile-assets \
+                    output/profile-minecraft.gif \
+                    output/profile-minecraft.png \
+                    --clobber

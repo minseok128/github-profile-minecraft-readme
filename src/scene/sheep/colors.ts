@@ -1,4 +1,4 @@
-import type { SheepColorDefinition } from '../../types.js';
+import type { SheepColorDefinition } from '../types.js';
 import {
     SEED_ISLAND_MULTIPLIER,
     SEED_SHEEP_MULTIPLIER,
@@ -39,26 +39,6 @@ export const mixSeed = (value: number): number => {
     return seed >>> 0;
 };
 
-export const pickWeightedColor = (
-    seedBase: number,
-    colors: ReadonlyArray<SheepColorDefinition> = MINECRAFT_SHEEP_COLORS,
-): SheepColorDefinition => {
-    const totalWeight = colors.reduce(
-        (sum, color) => sum + color.weight,
-        0,
-    );
-    let roll = mixSeed(seedBase) % totalWeight;
-
-    for (const color of colors) {
-        if (roll < color.weight) {
-            return color;
-        }
-        roll -= color.weight;
-    }
-
-    return colors[0];
-};
-
 export const buildGlobalColorAssignments = (
     sheepSlots: Array<{
         islandId: number;
@@ -79,7 +59,9 @@ export const buildGlobalColorAssignments = (
     }));
 
     randomizedSlots.sort(
-        (left, right) => left.orderSeed - right.orderSeed || left.slotIndex - right.slotIndex,
+        (left, right) =>
+            left.orderSeed - right.orderSeed ||
+            left.slotIndex - right.slotIndex,
     );
 
     const assignedColors = new Array<SheepColorDefinition>(sheepSlots.length);

@@ -15,7 +15,11 @@ export const rgbToHex = (rgb: { r: number; g: number; b: number }): string =>
         .map((channel) => clampChannel(channel).toString(16).padStart(2, '0'))
         .join('')}`;
 
-export const mixHexColors = (startHex: string, endHex: string, t: number): string => {
+export const mixHexColors = (
+    startHex: string,
+    endHex: string,
+    t: number,
+): string => {
     const clampedT = Math.max(0, Math.min(1, t));
     const start = hexToRgb(startHex);
     const end = hexToRgb(endHex);

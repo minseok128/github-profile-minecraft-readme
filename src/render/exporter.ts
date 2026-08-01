@@ -1,314 +1,251 @@
-import { copyFile, mkdtemp, rm } from 'node:fs/promises';
-import * as os from 'node:os';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import * as path from 'node:path';
-import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
-import type {
-    ExportedAssetPaths,
-    RenderConfig,
-    UserSnapshot,
-} from '../types.js';
+import type { Browser, Page } from 'playwright';
+import type { RenderConfig } from '../config/types.js';
+import { OUTPUT_HANDLERS, waitForSceneReady } from '../output/handlers.js';
+import { runCommand } from '../output/command.js';
 import {
-    STANDALONE_SCENE_ASSET_URLS,
-    buildSceneHtml,
-} from '../scene/build-scene-page.js';
+    RENDER_MANIFEST_FILENAME,
+    publishArtifacts,
+} from '../output/publish.js';
+import type { ExportedAssetPaths, GeneratedArtifact } from '../output/types.js';
+import type { ContributionProfile } from '../profile/types.js';
+import { SCENE_ASSETS } from '../scene/assets.js';
+import { buildSceneHtml } from '../scene/build-scene-page.js';
 import { SCENE_RUNTIME_BUNDLE_FILENAME } from '../scene/runtime/constants.js';
-import { ensureDir, writeTextFile } from '../utils.js';
+import { writeTextFile } from '../utils.js';
 import { buildSceneRuntimeBundle } from './scene-runtime-bundle.js';
 import { startStaticSceneServer } from './static-server.js';
+import type { StaticSceneServer } from './static-server.js';
 
-const runCommand = async (
-    command: string,
-    args: Array<string>,
-    timeoutMs = 120_000,
-): Promise<void> =>
-    new Promise<void>((resolve, reject) => {
-        const child = spawn(command, args, {
-            stdio: 'inherit',
-            signal: AbortSignal.timeout(timeoutMs),
-        });
-        child.on('error', (error) => {
-            if (error.name === 'AbortError') {
-                reject(new Error(`${command} timed out after ${timeoutMs}ms`));
-                return;
-            }
-            reject(error);
-        });
-        child.on('exit', (code) => {
-            if (code === 0) {
-                resolve();
-                return;
-            }
-            reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
-        });
-    });
+const README_SNIPPET_FILENAME = 'README-snippet.md';
 
-const createReadmeSnippet = (
-    config: RenderConfig,
-    exportedAssets: ExportedAssetPaths,
+export interface ExporterDependencies {
+    buildRuntimeBundle: typeof buildSceneRuntimeBundle;
+    startServer: typeof startStaticSceneServer;
+    launchBrowser: () => Promise<Browser>;
+    commandRunner: typeof runCommand;
+    publish: typeof publishArtifacts;
+}
+
+const DEFAULT_DEPENDENCIES: ExporterDependencies = {
+    buildRuntimeBundle: buildSceneRuntimeBundle,
+    startServer: startStaticSceneServer,
+    launchBrowser: async (): Promise<Browser> =>
+        chromium.launch({
+            channel: 'chromium',
+            headless: true,
+            args: [
+                '--enable-webgl',
+                '--ignore-gpu-blocklist',
+                '--use-angle=swiftshader',
+            ],
+        }),
+    commandRunner: runCommand,
+    publish: publishArtifacts,
+};
+
+const toPosixPath = (filePath: string): string =>
+    filePath.split(path.sep).join('/');
+
+const buildReadmeSnippet = (
+    projectRoot: string,
+    outputDir: string,
+    artifacts: Array<GeneratedArtifact>,
 ): string => {
-    const preferredAsset = exportedAssets.gifPath ?? exportedAssets.pngPath;
-    const relativeAsset = preferredAsset
-        ? path
-              .relative(process.cwd(), preferredAsset)
-              .split(path.sep)
-              .join('/')
-        : '';
-
+    const preferredArtifact =
+        artifacts.find((artifact) => artifact.format === 'gif') ??
+        artifacts.find((artifact) => artifact.format === 'png') ??
+        artifacts.find((artifact) => artifact.format === 'html');
+    if (!preferredArtifact) {
+        throw new Error('No embeddable output was generated.');
+    }
+    const relativeTarget = toPosixPath(
+        path.relative(
+            projectRoot,
+            path.join(outputDir, preferredArtifact.relativePath),
+        ),
+    );
+    const embedLine =
+        preferredArtifact.format === 'html'
+            ? `[Open Minecraft contribution world](${relativeTarget})`
+            : `![Minecraft contribution world](${relativeTarget})`;
     return [
         '# README Embed',
         '',
         'Use the generated asset directly in your profile README with an unofficial notice:',
         '',
         '```md',
-        `![Minecraft contribution world](${relativeAsset})`,
+        embedLine,
         '<sub>Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</sub>',
         '```',
         '',
-        `PNG enabled: ${config.createPng}`,
-        `GIF enabled: ${config.createGif}`,
-        `Preview HTML enabled: ${config.emitHtml}`,
     ].join('\n');
 };
 
-const removeStandalonePreviewOutputs = async (
-    outputDir: string,
-    baseName: string,
+const collectLegacyManagedPaths = (baseName: string): Array<string> => [
+    `${baseName}.png`,
+    `${baseName}.gif`,
+    `${baseName}.html`,
+    SCENE_RUNTIME_BUNDLE_FILENAME,
+    README_SNIPPET_FILENAME,
+    RENDER_MANIFEST_FILENAME,
+    ...Object.values(SCENE_ASSETS).map((fileName) =>
+        path.posix.join('assets', fileName),
+    ),
+];
+
+const closeResources = async (
+    page: Page | undefined,
+    browser: Browser | undefined,
+    server: StaticSceneServer | undefined,
 ): Promise<void> => {
-    await Promise.all([
-        rm(path.join(outputDir, 'assets'), {
-            recursive: true,
-            force: true,
-        }),
-        rm(path.join(outputDir, `${baseName}.html`), {
-            force: true,
-        }),
-        rm(path.join(outputDir, SCENE_RUNTIME_BUNDLE_FILENAME), {
-            force: true,
-        }),
-        rm(path.join(outputDir, 'vendor'), {
-            recursive: true,
-            force: true,
-        }),
-    ]);
-};
-
-const writeStandalonePreview = async (
-    projectRoot: string,
-    outputDir: string,
-    baseName: string,
-    html: string,
-    sceneRuntimeScript: string,
-): Promise<string> => {
-    await rm(path.join(outputDir, 'vendor'), {
-        recursive: true,
-        force: true,
-    });
-    const assetDir = path.join(outputDir, 'assets');
-    await ensureDir(assetDir);
-    const assetFiles = [
-        'sheep.png',
-        'sheep_fur.png',
-        'grass_block_top.png',
-        'grass_block_side.png',
-        'grass_block_side_overlay.png',
-        'grass_block_snow.png',
-        'pink_petals.png',
-        'leaf_litter.png',
-        'poppy.png',
-        'dandelion.png',
-        'cornflower.png',
-        'blue_orchid.png',
-        'azure_bluet.png',
-        'pink_tulip.png',
-        'white_tulip.png',
-        'snow.png',
-        'dirt.png',
-        'water_top.png',
-        'water_side.png',
-    ];
-
-    await Promise.all(
-        assetFiles.map((assetFile) =>
-            copyFile(
-                path.join(projectRoot, 'assets', assetFile),
-                path.join(assetDir, assetFile),
-            ),
-        ),
-    );
-
-    await writeTextFile(
-        path.join(outputDir, SCENE_RUNTIME_BUNDLE_FILENAME),
-        sceneRuntimeScript,
-    );
-    const htmlPath = path.join(outputDir, `${baseName}.html`);
-    await writeTextFile(htmlPath, html);
-    return htmlPath;
+    const cleanupSteps = [
+        ['page', page ? (): Promise<void> => page.close() : undefined],
+        ['browser', browser ? (): Promise<void> => browser.close() : undefined],
+        ['server', server ? (): Promise<void> => server.close() : undefined],
+    ] as const;
+    for (const [resourceName, cleanup] of cleanupSteps) {
+        if (!cleanup) {
+            continue;
+        }
+        try {
+            await cleanup();
+        } catch (error) {
+            console.error(
+                `${resourceName} cleanup failed: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+        }
+    }
 };
 
 export const exportProfileAssets = async (
     projectRoot: string,
-    userSnapshot: UserSnapshot,
+    profile: ContributionProfile,
     config: RenderConfig,
-    html: string,
+    dependencyOverrides: Partial<ExporterDependencies> = {},
 ): Promise<ExportedAssetPaths> => {
-    const outputDir = path.resolve(projectRoot, config.outputDir);
-    await ensureDir(outputDir);
-
-    const sceneRuntimeScript = await buildSceneRuntimeBundle(projectRoot);
-    const server = await startStaticSceneServer(
-        projectRoot,
-        html,
-        sceneRuntimeScript,
+    const dependencies = {
+        ...DEFAULT_DEPENDENCIES,
+        ...dependencyOverrides,
+    };
+    const outputDir = path.resolve(projectRoot, config.output.directory);
+    const outputParent = path.dirname(outputDir);
+    await mkdir(outputParent, { recursive: true });
+    const stagingDir = await mkdtemp(
+        path.join(outputParent, `.${path.basename(outputDir)}-staging-`),
     );
-    const browser = await chromium.launch({
-        channel: 'chromium',
-        headless: true,
-        args: [
-            '--enable-webgl',
-            '--ignore-gpu-blocklist',
-            '--use-angle=swiftshader',
-        ],
-    });
-    const frameTempDir = await mkdtemp(
-        path.join(os.tmpdir(), 'github-profile-minecraft-'),
+    const handlers = config.capture.formats.map(
+        (format) => OUTPUT_HANDLERS[format],
     );
-
-    const page = await browser.newPage({
-        viewport: {
-            width: config.width,
-            height: config.height,
-        },
-        deviceScaleFactor: 1,
-    });
-    page.on('console', (message) => {
-        if (message.type() === 'error') {
-            console.error(`[browser:${message.type()}] ${message.text()}`);
-        }
-    });
-    page.on('response', (response) => {
-        if (response.status() >= 400) {
-            console.error(
-                `[response:${response.status()}] ${response.url()}`,
-            );
-        }
-    });
-    page.on('requestfailed', (request) => {
-        console.error(
-            `[requestfailed] ${request.url()} :: ${request.failure()?.errorText ?? 'unknown'}`,
-        );
-    });
-    page.on('pageerror', (error) => {
-        console.error(`[pageerror] ${error.message}`);
-    });
+    const needsBrowser = handlers.some(
+        (handler) => handler.requirements.browser,
+    );
+    const needsFfmpeg = handlers.some((handler) => handler.requirements.ffmpeg);
+    let server: StaticSceneServer | undefined;
+    let browser: Browser | undefined;
+    let page: Page | undefined;
 
     try {
-        await page.goto(`${server.origin}/scene.html`, {
-            waitUntil: 'networkidle',
-        });
-        await page.waitForFunction(
-            () => (window as Window & { __PROFILE_SCENE_READY?: boolean }).__PROFILE_SCENE_READY === true,
-        );
-
-        const exportedAssets: ExportedAssetPaths = {
-            readmeSnippetPath: path.join(outputDir, 'README-snippet.md'),
-        };
-        const screenshotOptions = {
-            omitBackground: config.background === 'transparent',
-        };
-        const fps = config.gif.fps;
-        const frameCount = Math.max(
-            1,
-            Math.round(config.gif.durationSec * fps),
-        );
-
-        if (config.createPng) {
-            const pngPath = path.join(outputDir, `${config.baseName}.png`);
-            await page.evaluate((timeSec) => {
-                (window as unknown as { __setSceneTime: (t: number) => void }).__setSceneTime(timeSec);
-            }, 0);
-            await page.screenshot({
-                path: pngPath,
-                ...screenshotOptions,
-            });
-            exportedAssets.pngPath = pngPath;
+        if (needsFfmpeg) {
+            await dependencies.commandRunner('ffmpeg', ['-version'], 30_000);
         }
-
-        if (config.createGif) {
-            for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-                const framePath = path.join(
-                    frameTempDir,
-                    `frame-${String(frameIndex).padStart(4, '0')}.png`,
-                );
-                const timeSec = frameIndex / fps;
-                await page.evaluate((time) => {
-                    (window as unknown as { __setSceneTime: (t: number) => void }).__setSceneTime(time);
-                }, timeSec);
-                await page.screenshot({
-                    path: framePath,
-                    ...screenshotOptions,
-                });
-            }
-
-            const palettePath = path.join(frameTempDir, 'palette.png');
-            const gifPath = path.join(outputDir, `${config.baseName}.gif`);
-
-            await runCommand('ffmpeg', [
-                '-y',
-                '-framerate',
-                String(config.gif.fps),
-                '-i',
-                path.join(frameTempDir, 'frame-%04d.png'),
-                '-vf',
-                'palettegen=stats_mode=diff',
-                '-frames:v',
-                '1',
-                '-update',
-                '1',
-                palettePath,
-            ]);
-            await runCommand('ffmpeg', [
-                '-y',
-                '-framerate',
-                String(config.gif.fps),
-                '-i',
-                path.join(frameTempDir, 'frame-%04d.png'),
-                '-i',
-                palettePath,
-                '-lavfi',
-                'paletteuse=dither=sierra2_4a',
-                gifPath,
-            ]);
-
-            exportedAssets.gifPath = gifPath;
-        }
-
-        if (config.emitHtml) {
-            const standaloneHtml = buildSceneHtml(
-                userSnapshot,
-                config,
-                STANDALONE_SCENE_ASSET_URLS,
-            );
-            exportedAssets.htmlPath = await writeStandalonePreview(
+        const runtimeScript =
+            await dependencies.buildRuntimeBundle(projectRoot);
+        if (needsBrowser) {
+            server = await dependencies.startServer(
                 projectRoot,
-                outputDir,
-                config.baseName,
-                standaloneHtml,
-                sceneRuntimeScript,
+                buildSceneHtml(profile, config),
+                runtimeScript,
             );
-        } else {
-            await removeStandalonePreviewOutputs(outputDir, config.baseName);
+            browser = await dependencies.launchBrowser();
+            page = await browser.newPage({
+                viewport: {
+                    width: config.capture.width,
+                    height: config.capture.height,
+                },
+                deviceScaleFactor: 1,
+            });
+            page.on('console', (message) => {
+                if (message.type() === 'error') {
+                    console.error(`[browser:error] ${message.text()}`);
+                }
+            });
+            page.on('requestfailed', (request) => {
+                console.error(
+                    `[requestfailed] ${request.url()} :: ${
+                        request.failure()?.errorText ?? 'unknown'
+                    }`,
+                );
+            });
+            await page.goto(`${server.origin}/scene.html`, {
+                waitUntil: 'networkidle',
+            });
+            await waitForSceneReady(page);
         }
 
+        const artifacts: Array<GeneratedArtifact> = [];
+        for (const handler of handlers) {
+            artifacts.push(
+                ...(await handler.produce({
+                    projectRoot,
+                    stagingDir,
+                    profile,
+                    config,
+                    runtimeScript,
+                    page,
+                    runCommand: dependencies.commandRunner,
+                })),
+            );
+        }
+
+        const snippetPath = path.join(stagingDir, README_SNIPPET_FILENAME);
         await writeTextFile(
-            exportedAssets.readmeSnippetPath,
-            createReadmeSnippet(config, exportedAssets),
+            snippetPath,
+            buildReadmeSnippet(projectRoot, outputDir, artifacts),
         );
-        return exportedAssets;
+        artifacts.push({
+            format: 'support',
+            relativePath: README_SNIPPET_FILENAME,
+            absolutePath: snippetPath,
+        });
+
+        const manifestPath = await dependencies.publish({
+            stagingDir,
+            outputDir,
+            generatedPaths: artifacts.map((artifact) => artifact.relativePath),
+            legacyManagedPaths: collectLegacyManagedPaths(
+                config.output.baseName,
+            ),
+        });
+        const findOutputPath = (
+            format: 'png' | 'gif' | 'html',
+        ): string | undefined => {
+            const artifact = artifacts.find((entry) => entry.format === format);
+            return artifact
+                ? path.join(outputDir, artifact.relativePath)
+                : undefined;
+        };
+        return {
+            pngPath: findOutputPath('png'),
+            gifPath: findOutputPath('gif'),
+            htmlPath: findOutputPath('html'),
+            readmeSnippetPath: path.join(outputDir, README_SNIPPET_FILENAME),
+            manifestPath,
+        };
     } finally {
-        await page.close();
-        await browser.close();
-        await server.close();
-        await rm(frameTempDir, { recursive: true, force: true });
+        await closeResources(page, browser, server);
+        try {
+            await rm(stagingDir, { recursive: true, force: true });
+        } catch (error) {
+            console.error(
+                `staging cleanup failed: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+        }
     }
 };

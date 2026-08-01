@@ -102,8 +102,9 @@ export const buildTerrainAndFlora = (
         const snowCoverage = terrainTextures.getSnowCoverage(cell.date);
         const hasSnowCover =
             snowCoverage > 0 &&
-            terrainTextures.hashString(`${cell.date}:${cell.contributionLevel}`) <
-                snowCoverage;
+            terrainTextures.hashString(
+                `${cell.date}:${cell.contributionLevel}`,
+            ) < snowCoverage;
         if (hasSnowCover) {
             return;
         }
